@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package gitops;
+
+option go_package = "github.com/tvandinther/gitops-manager/gitops";
+
+message Error {
+    string message = 1;
+}

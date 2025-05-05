@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package gitops;
+
+option go_package = "github.com/tvandinther/gitops-manager/gitops";
+
+import "request.proto";
+import "response.proto";
+import "progress.proto";
+import "errors.proto";
+
+service GitOps {
+    rpc UpdateManifests(stream ManifestRequest) returns (stream ManifestResponse);
+}
+
+message ManifestRequest {
+    oneof content {
+        UpdateManifestMetadata metadata = 1;
+        FileChunk file = 2;
+    }
+}
+
+message ManifestResponse {
+    oneof response {
+        Progress progress = 1;
+        Summary summary = 2;
+        Error error = 3;
+    }
+}

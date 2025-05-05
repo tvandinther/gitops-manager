@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package gitops;
+
+option go_package = "github.com/tvandinther/gitops-manager/gitops";
+
+enum ProgressKind {
+    UNKNOWN = 0;
+    HEADING = 1;
+    PROGRESS = 2;
+    SUCCESS = 3;
+    FAILURE = 4;
+}
+
+message Progress {
+    ProgressKind kind = 1;
+    string status = 2;
+}

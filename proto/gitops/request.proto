@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package gitops;
+
+option go_package = "github.com/tvandinther/gitops-manager/gitops";
+
+import "common.proto";
+
+message FileChunk {
+    string filename = 1;
+    bool is_last_chunk = 2;
+    bytes content = 3;
+}
+
+message UpdateManifestMetadata {
+    Repository config_repository = 1;
+    string environment = 2;
+    string update_identifier = 3;
+    string app_name = 4;
+    string auth_token = 5;
+    bool dry_run = 6;
+    bool auto_merge = 7;
+    RequestSource source = 8;
+}
+
+message RequestSource {
+    Repository repository = 1;
+    SourceMetadata metadata = 2;
+}
+
+message SourceMetadata {
+    string commit_sha = 1;
+    string pipeline_actor = 2;
+    string pipeline_run_id = 3;
+}

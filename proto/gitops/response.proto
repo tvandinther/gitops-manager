@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package gitops;
+
+option go_package = "github.com/tvandinther/gitops-manager/gitops";
+
+import "common.proto";
+
+message Summary {
+    string message = 1;
+    int32 updated_files_count = 2;
+    bool dry_run = 3;
+    ReviewSummary review = 4;
+    EnvironmentSummary environment = 5;
+}
+
+message ReviewSummary {
+    bool created = 1;
+    string url = 2;
+    bool merged = 3;
+}
+
+message EnvironmentSummary {
+    Repository repository = 1;
+    string name = 2;
+    string ref_name = 3;
+}
