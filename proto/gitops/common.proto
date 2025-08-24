@@ -5,6 +5,5 @@ package gitops;
 option go_package = "github.com/tvandinther/gitops-manager/gitops";
 
 message Repository {
-    string owner = 1;
-    string name = 2;
+    string url = 1;
 }

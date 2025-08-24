@@ -1,4 +1,4 @@
-ARG APP_NAME="manifest-client"
+ARG APP_NAME="client"
 
 FROM golang:1.24.5-alpine AS builder
 

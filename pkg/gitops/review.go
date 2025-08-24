@@ -3,8 +3,9 @@ package gitops
 import "context"
 
 type CreateReviewResult struct {
-	Created bool
-	URL     string
+	Created   bool
+	URL       string
+	Completed bool
 }
 
 type Reviewer interface {

@@ -1,4 +1,4 @@
-ARG APP_NAME="manifest-server"
+ARG APP_NAME="server"
 
 FROM golang:1.24.5-alpine AS builder
 
