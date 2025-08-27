@@ -27,7 +27,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /${APP_NAME} cmd/${APP_NAME}/*.go
 
-FROM scratch
+FROM gcr.io/distroless/static
 
 ARG APP_NAME
 

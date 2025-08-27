@@ -3,6 +3,18 @@ services:
     build:
       context: .
       dockerfile: cmd/server/Dockerfile
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      - LOG_LEVEL=DEBUG
+      - GITEA_HOST=http://host.docker.internal:3000
+      - GITEA_USER=gitops-manager
+      - GITEA_ACCESS_TOKEN=58359fe2e5db3884c70d8646971ebf5cae21fd63
+    develop:
+      watch:
+        - path: ./
+          action: rebuild
 
   gitea:
     image: docker.gitea.com/gitea:1.24.5
@@ -11,8 +23,6 @@ services:
       - USER_UID=1000
       - USER_GID=1000
     restart: always
-    # networks:
-    #   - gitea
     volumes:
       - gitea:/data
       - ./gitea.db:/data/gitea/gitea.db

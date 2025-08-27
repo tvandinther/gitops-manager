@@ -101,7 +101,7 @@ type ReviewSummary struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Created       bool                   `protobuf:"varint,1,opt,name=created,proto3" json:"created,omitempty"`
 	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
-	Merged        bool                   `protobuf:"varint,3,opt,name=merged,proto3" json:"merged,omitempty"`
+	Completed     bool                   `protobuf:"varint,3,opt,name=completed,proto3" json:"completed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -150,9 +150,9 @@ func (x *ReviewSummary) GetUrl() string {
 	return ""
 }
 
-func (x *ReviewSummary) GetMerged() bool {
+func (x *ReviewSummary) GetCompleted() bool {
 	if x != nil {
-		return x.Merged
+		return x.Completed
 	}
 	return false
 }
@@ -227,11 +227,11 @@ const file_response_proto_rawDesc = "" +
 	"\x13updated_files_count\x18\x02 \x01(\x05R\x11updatedFilesCount\x12\x17\n" +
 	"\adry_run\x18\x03 \x01(\bR\x06dryRun\x12-\n" +
 	"\x06review\x18\x04 \x01(\v2\x15.gitops.ReviewSummaryR\x06review\x12<\n" +
-	"\venvironment\x18\x05 \x01(\v2\x1a.gitops.EnvironmentSummaryR\venvironment\"S\n" +
+	"\venvironment\x18\x05 \x01(\v2\x1a.gitops.EnvironmentSummaryR\venvironment\"Y\n" +
 	"\rReviewSummary\x12\x18\n" +
 	"\acreated\x18\x01 \x01(\bR\acreated\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\x12\x16\n" +
-	"\x06merged\x18\x03 \x01(\bR\x06merged\"w\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12\x1c\n" +
+	"\tcompleted\x18\x03 \x01(\bR\tcompleted\"w\n" +
 	"\x12EnvironmentSummary\x122\n" +
 	"\n" +
 	"repository\x18\x01 \x01(\v2\x12.gitops.RepositoryR\n" +

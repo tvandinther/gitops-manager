@@ -1,5 +1,8 @@
 package gitops
 
+import "context"
+
 type Mutator interface {
-	MutateDir(path string) error
+	GetTitle() string
+	Mutate(ctx context.Context, dir string, error func(e error), next func(), sendMsg func(string))
 }

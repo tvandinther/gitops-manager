@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "jetpack-io.devbox",
-        "golang.go"
+        "golang.go",
+        "nefrob.vscode-just-syntax"
     ]
 }

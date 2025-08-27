@@ -9,6 +9,6 @@ type CreateReviewResult struct {
 }
 
 type Reviewer interface {
-	CreateReview(ctx context.Context) (CreateReviewResult, error)
-	CompleteReview(ctx context.Context) (bool, error)
+	CreateReview(ctx context.Context, req *Request, sendMsg func(string)) (*CreateReviewResult, error)
+	CompleteReview(ctx context.Context, req *Request, sendMsg func(string)) (bool, error)
 }

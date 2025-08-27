@@ -5,6 +5,7 @@ package gitops;
 option go_package = "github.com/tvandinther/gitops-manager/gitops";
 
 import "common.proto";
+import "google/protobuf/struct.proto";
 
 message FileChunk {
     string filename = 1;
@@ -19,8 +20,9 @@ message UpdateManifestMetadata {
     string app_name = 4;
     string auth_token = 5;
     bool dry_run = 6;
-    bool auto_merge = 7;
+    bool auto_review = 7;
     RequestSource source = 8;
+    map<string, google.protobuf.Value> metadata = 9;
 }
 
 message RequestSource {
@@ -30,6 +32,6 @@ message RequestSource {
 
 message SourceMetadata {
     string commit_sha = 1;
-    string pipeline_actor = 2;
-    string pipeline_run_id = 3;
+    string actor = 2;
+    map<string, google.protobuf.Value> attributes = 3;
 }

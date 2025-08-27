@@ -1,5 +1,7 @@
 package gitops
 
-type Authenticator interface {
-	Authenticate(any) (bool, error)
+import "net/url"
+
+type URLAuthenticator interface {
+	GetAuthenticatedUrl(url *url.URL, sendMsg func(string)) (*url.URL, error)
 }

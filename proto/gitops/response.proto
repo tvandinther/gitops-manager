@@ -17,7 +17,7 @@ message Summary {
 message ReviewSummary {
     bool created = 1;
     string url = 2;
-    bool merged = 3;
+    bool completed = 3;
 }
 
 message EnvironmentSummary {

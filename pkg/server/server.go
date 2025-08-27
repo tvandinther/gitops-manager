@@ -15,6 +15,8 @@ import (
 	pb "github.com/tvandinther/gitops-manager/gen/go"
 	"github.com/tvandinther/gitops-manager/internal/health"
 	"github.com/tvandinther/gitops-manager/internal/util"
+	"github.com/tvandinther/gitops-manager/pkg/flow"
+	"github.com/tvandinther/gitops-manager/pkg/gitops"
 	"github.com/tvandinther/gitops-manager/pkg/progress"
 
 	"log/slog"
@@ -24,10 +26,15 @@ import (
 
 type Server struct {
 	pb.UnimplementedGitOpsServer
+	flow        *flow.Flow
+	managerOpts *ManagerOpts
 }
 
-func New() *Server {
-	return &Server{}
+func New(flow *flow.Flow, managerOpts *ManagerOpts) *Server {
+	return &Server{
+		flow:        flow,
+		managerOpts: managerOpts,
+	}
 }
 
 func (s *Server) WithDefaultLogger() *Server {
@@ -93,11 +100,13 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 	wg.Add(1)
 	go reporter.Run(ctx, &wg)
 
+	gitopsManager := newManager(reporter, s.flow, s.managerOpts)
+
 	tempfs, err := util.NewTempFS()
 	if err != nil {
 		return fmt.Errorf("failed creating a new temporary filesystem: %w", err)
 	}
-	defer tempfs.Clear()
+	// defer tempfs.Clear()
 
 	repoDir, err := tempfs.Mkdir("repository")
 	if err != nil {
@@ -114,8 +123,8 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 		metadataRecieved          = false
 		receivedFileCount    int  = 0
 		receivedFileCountPtr *int = &receivedFileCount
-		opts                      = &RequestOptions{
-			Paths: Paths{
+		opts                      = &gitops.Request{
+			Paths: gitops.Paths{
 				TempDir:             tempfs.Root,
 				RepositoryDir:       repoDir,
 				UpdatedManifestsDir: updatedManifestsPath,
@@ -148,7 +157,9 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 				return errors.New("request metadata already recieved")
 			}
 			metadataRecieved = true
-			assignRequestMetadataToOptions(m.Metadata, opts)
+			slog.Debug("received request metadata", "metadata", m.Metadata)
+			assignRequestMetadataToRequest(m.Metadata, opts)
+			slog.Debug("assigned request metadata to options", "options", opts)
 
 		case *pb.ManifestRequest_File:
 			chunk := m.File
@@ -186,9 +197,7 @@ respond:
 		return err
 	}
 
-	manager := NewManager(reporter, nil)
-
-	response, err := manager.ProcessRequest(ctx, opts)
+	response, err := gitopsManager.ProcessRequest(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to process manifests request: %w", err)
 	}
@@ -211,13 +220,13 @@ respond:
 					UpdatedFilesCount: int32(response.UpdatedFilesCount),
 					DryRun:            response.DryRun,
 					Review: &pb.ReviewSummary{
-						Created: response.ReviewResult.Created,
-						Url:     response.ReviewResult.URL,
-						Merged:  response.ReviewResult.Completed,
+						Created:   response.ReviewResult.Created,
+						Url:       response.ReviewResult.URL,
+						Completed: response.ReviewResult.Completed,
 					},
 					Environment: &pb.EnvironmentSummary{
 						Repository: &pb.Repository{
-							Url: *response.Environment.Repository,
+							Url: response.Environment.Repository.URL,
 						},
 						Name:    response.Environment.Name,
 						RefName: response.Environment.RefName,
@@ -236,23 +245,33 @@ respond:
 	return nil
 }
 
-func assignRequestMetadataToOptions(metadata *pb.UpdateManifestMetadata, opts *RequestOptions) {
-	opts.TargetRepository = metadata.ConfigRepository.Url
-	opts.Environment = metadata.Environment
-	opts.UpdateIdentifier = metadata.UpdateIdentifier
-	opts.AppName = metadata.AppName
-	opts.DryRun = metadata.DryRun
-	opts.AutoMerge = metadata.AutoMerge
-	opts.Source = &RequestSource{
-		Repository: &metadata.Source.Repository.Url,
-		Metadata: struct {
-			CommitSHA     string
-			PipelineActor string
-			PipelineRunID string
-		}{
-			CommitSHA:     metadata.Source.Metadata.CommitSha,
-			PipelineActor: metadata.Source.Metadata.PipelineActor,
-			PipelineRunID: metadata.Source.Metadata.PipelineRunId,
+func assignRequestMetadataToRequest(metadata *pb.UpdateManifestMetadata, req *gitops.Request) {
+	req.TargetRepository = gitops.Repository{
+		URL: metadata.ConfigRepository.Url,
+	}
+	req.Environment = metadata.Environment
+	req.UpdateIdentifier = metadata.UpdateIdentifier
+	req.AppName = metadata.AppName
+	req.DryRun = metadata.DryRun
+	req.AutoReview = metadata.AutoReview
+	req.Source = &gitops.RequestSource{
+		Repository: &gitops.Repository{
+			URL: metadata.Source.Repository.Url,
+		},
+		Metadata: &gitops.RequestSourceMetadata{
+			CommitSHA: metadata.Source.Metadata.CommitSha,
+			Actor:     metadata.Source.Metadata.Actor,
 		},
 	}
+
+	req.Metadata = make(map[string]any)
+	for k, v := range metadata.GetMetadata() {
+		req.Metadata[k] = v.AsInterface()
+	}
+
+	req.Source.Metadata.Attributes = make(map[string]any)
+	for k, v := range metadata.Source.Metadata.GetAttributes() {
+		req.Source.Metadata.Attributes[k] = v.AsInterface()
+	}
+
 }

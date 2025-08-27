@@ -9,6 +9,7 @@ package gitops
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -82,15 +83,16 @@ func (x *FileChunk) GetContent() []byte {
 }
 
 type UpdateManifestMetadata struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	ConfigRepository *Repository            `protobuf:"bytes,1,opt,name=config_repository,json=configRepository,proto3" json:"config_repository,omitempty"`
-	Environment      string                 `protobuf:"bytes,2,opt,name=environment,proto3" json:"environment,omitempty"`
-	UpdateIdentifier string                 `protobuf:"bytes,3,opt,name=update_identifier,json=updateIdentifier,proto3" json:"update_identifier,omitempty"`
-	AppName          string                 `protobuf:"bytes,4,opt,name=app_name,json=appName,proto3" json:"app_name,omitempty"`
-	AuthToken        string                 `protobuf:"bytes,5,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
-	DryRun           bool                   `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
-	AutoMerge        bool                   `protobuf:"varint,7,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
-	Source           *RequestSource         `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
+	state            protoimpl.MessageState     `protogen:"open.v1"`
+	ConfigRepository *Repository                `protobuf:"bytes,1,opt,name=config_repository,json=configRepository,proto3" json:"config_repository,omitempty"`
+	Environment      string                     `protobuf:"bytes,2,opt,name=environment,proto3" json:"environment,omitempty"`
+	UpdateIdentifier string                     `protobuf:"bytes,3,opt,name=update_identifier,json=updateIdentifier,proto3" json:"update_identifier,omitempty"`
+	AppName          string                     `protobuf:"bytes,4,opt,name=app_name,json=appName,proto3" json:"app_name,omitempty"`
+	AuthToken        string                     `protobuf:"bytes,5,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
+	DryRun           bool                       `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	AutoReview       bool                       `protobuf:"varint,7,opt,name=auto_review,json=autoReview,proto3" json:"auto_review,omitempty"`
+	Source           *RequestSource             `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
+	Metadata         map[string]*structpb.Value `protobuf:"bytes,9,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -167,9 +169,9 @@ func (x *UpdateManifestMetadata) GetDryRun() bool {
 	return false
 }
 
-func (x *UpdateManifestMetadata) GetAutoMerge() bool {
+func (x *UpdateManifestMetadata) GetAutoReview() bool {
 	if x != nil {
-		return x.AutoMerge
+		return x.AutoReview
 	}
 	return false
 }
@@ -177,6 +179,13 @@ func (x *UpdateManifestMetadata) GetAutoMerge() bool {
 func (x *UpdateManifestMetadata) GetSource() *RequestSource {
 	if x != nil {
 		return x.Source
+	}
+	return nil
+}
+
+func (x *UpdateManifestMetadata) GetMetadata() map[string]*structpb.Value {
+	if x != nil {
+		return x.Metadata
 	}
 	return nil
 }
@@ -234,10 +243,10 @@ func (x *RequestSource) GetMetadata() *SourceMetadata {
 }
 
 type SourceMetadata struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CommitSha     string                 `protobuf:"bytes,1,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
-	PipelineActor string                 `protobuf:"bytes,2,opt,name=pipeline_actor,json=pipelineActor,proto3" json:"pipeline_actor,omitempty"`
-	PipelineRunId string                 `protobuf:"bytes,3,opt,name=pipeline_run_id,json=pipelineRunId,proto3" json:"pipeline_run_id,omitempty"`
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	CommitSha     string                     `protobuf:"bytes,1,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
+	Actor         string                     `protobuf:"bytes,2,opt,name=actor,proto3" json:"actor,omitempty"`
+	Attributes    map[string]*structpb.Value `protobuf:"bytes,3,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -279,29 +288,29 @@ func (x *SourceMetadata) GetCommitSha() string {
 	return ""
 }
 
-func (x *SourceMetadata) GetPipelineActor() string {
+func (x *SourceMetadata) GetActor() string {
 	if x != nil {
-		return x.PipelineActor
+		return x.Actor
 	}
 	return ""
 }
 
-func (x *SourceMetadata) GetPipelineRunId() string {
+func (x *SourceMetadata) GetAttributes() map[string]*structpb.Value {
 	if x != nil {
-		return x.PipelineRunId
+		return x.Attributes
 	}
-	return ""
+	return nil
 }
 
 var File_request_proto protoreflect.FileDescriptor
 
 const file_request_proto_rawDesc = "" +
 	"\n" +
-	"\rrequest.proto\x12\x06gitops\x1a\fcommon.proto\"e\n" +
+	"\rrequest.proto\x12\x06gitops\x1a\fcommon.proto\x1a\x1cgoogle/protobuf/struct.proto\"e\n" +
 	"\tFileChunk\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\"\n" +
 	"\ris_last_chunk\x18\x02 \x01(\bR\visLastChunk\x12\x18\n" +
-	"\acontent\x18\x03 \x01(\fR\acontent\"\xc9\x02\n" +
+	"\acontent\x18\x03 \x01(\fR\acontent\"\xea\x03\n" +
 	"\x16UpdateManifestMetadata\x12?\n" +
 	"\x11config_repository\x18\x01 \x01(\v2\x12.gitops.RepositoryR\x10configRepository\x12 \n" +
 	"\venvironment\x18\x02 \x01(\tR\venvironment\x12+\n" +
@@ -309,20 +318,29 @@ const file_request_proto_rawDesc = "" +
 	"\bapp_name\x18\x04 \x01(\tR\aappName\x12\x1d\n" +
 	"\n" +
 	"auth_token\x18\x05 \x01(\tR\tauthToken\x12\x17\n" +
-	"\adry_run\x18\x06 \x01(\bR\x06dryRun\x12\x1d\n" +
-	"\n" +
-	"auto_merge\x18\a \x01(\bR\tautoMerge\x12-\n" +
-	"\x06source\x18\b \x01(\v2\x15.gitops.RequestSourceR\x06source\"w\n" +
+	"\adry_run\x18\x06 \x01(\bR\x06dryRun\x12\x1f\n" +
+	"\vauto_review\x18\a \x01(\bR\n" +
+	"autoReview\x12-\n" +
+	"\x06source\x18\b \x01(\v2\x15.gitops.RequestSourceR\x06source\x12H\n" +
+	"\bmetadata\x18\t \x03(\v2,.gitops.UpdateManifestMetadata.MetadataEntryR\bmetadata\x1aS\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"w\n" +
 	"\rRequestSource\x122\n" +
 	"\n" +
 	"repository\x18\x01 \x01(\v2\x12.gitops.RepositoryR\n" +
 	"repository\x122\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x16.gitops.SourceMetadataR\bmetadata\"~\n" +
+	"\bmetadata\x18\x02 \x01(\v2\x16.gitops.SourceMetadataR\bmetadata\"\xe4\x01\n" +
 	"\x0eSourceMetadata\x12\x1d\n" +
 	"\n" +
-	"commit_sha\x18\x01 \x01(\tR\tcommitSha\x12%\n" +
-	"\x0epipeline_actor\x18\x02 \x01(\tR\rpipelineActor\x12&\n" +
-	"\x0fpipeline_run_id\x18\x03 \x01(\tR\rpipelineRunIdB.Z,github.com/tvandinther/gitops-manager/gitopsb\x06proto3"
+	"commit_sha\x18\x01 \x01(\tR\tcommitSha\x12\x14\n" +
+	"\x05actor\x18\x02 \x01(\tR\x05actor\x12F\n" +
+	"\n" +
+	"attributes\x18\x03 \x03(\v2&.gitops.SourceMetadata.AttributesEntryR\n" +
+	"attributes\x1aU\n" +
+	"\x0fAttributesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01B.Z,github.com/tvandinther/gitops-manager/gitopsb\x06proto3"
 
 var (
 	file_request_proto_rawDescOnce sync.Once
@@ -336,24 +354,31 @@ func file_request_proto_rawDescGZIP() []byte {
 	return file_request_proto_rawDescData
 }
 
-var file_request_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_request_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_request_proto_goTypes = []any{
 	(*FileChunk)(nil),              // 0: gitops.FileChunk
 	(*UpdateManifestMetadata)(nil), // 1: gitops.UpdateManifestMetadata
 	(*RequestSource)(nil),          // 2: gitops.RequestSource
 	(*SourceMetadata)(nil),         // 3: gitops.SourceMetadata
-	(*Repository)(nil),             // 4: gitops.Repository
+	nil,                            // 4: gitops.UpdateManifestMetadata.MetadataEntry
+	nil,                            // 5: gitops.SourceMetadata.AttributesEntry
+	(*Repository)(nil),             // 6: gitops.Repository
+	(*structpb.Value)(nil),         // 7: google.protobuf.Value
 }
 var file_request_proto_depIdxs = []int32{
-	4, // 0: gitops.UpdateManifestMetadata.config_repository:type_name -> gitops.Repository
+	6, // 0: gitops.UpdateManifestMetadata.config_repository:type_name -> gitops.Repository
 	2, // 1: gitops.UpdateManifestMetadata.source:type_name -> gitops.RequestSource
-	4, // 2: gitops.RequestSource.repository:type_name -> gitops.Repository
-	3, // 3: gitops.RequestSource.metadata:type_name -> gitops.SourceMetadata
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 2: gitops.UpdateManifestMetadata.metadata:type_name -> gitops.UpdateManifestMetadata.MetadataEntry
+	6, // 3: gitops.RequestSource.repository:type_name -> gitops.Repository
+	3, // 4: gitops.RequestSource.metadata:type_name -> gitops.SourceMetadata
+	5, // 5: gitops.SourceMetadata.attributes:type_name -> gitops.SourceMetadata.AttributesEntry
+	7, // 6: gitops.UpdateManifestMetadata.MetadataEntry.value:type_name -> google.protobuf.Value
+	7, // 7: gitops.SourceMetadata.AttributesEntry.value:type_name -> google.protobuf.Value
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_request_proto_init() }
@@ -368,7 +393,7 @@ func file_request_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_request_proto_rawDesc), len(file_request_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
