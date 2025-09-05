@@ -19,6 +19,10 @@ func (h *HelmHooksToArgoCD) GetTitle() string {
 func (h *HelmHooksToArgoCD) MutateFile(ctx context.Context, inputFile io.Reader, outputFile io.Writer, sendMsg func(string)) error {
 	var root yaml.Node
 	err := yaml.NewDecoder(inputFile).Decode(&root)
+	// If empty file, do nothing
+	if err == io.EOF {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to parse file as YAML: %w", err)
 	}

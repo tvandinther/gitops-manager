@@ -15,6 +15,7 @@ import (
 	"github.com/tvandinther/gitops-manager/pkg/gitops/copier"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/mutators"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/reviewer"
+	"github.com/tvandinther/gitops-manager/pkg/gitops/validators"
 	"github.com/tvandinther/gitops-manager/pkg/server"
 )
 
@@ -62,6 +63,7 @@ func main() {
 	})
 
 	flow.WithMutators(&mutators.HelmHooksToArgoCD{})
+	flow.WithValidators(&validators.EmptyFile{})
 
 	server := server.New(flow, &server.ManagerOpts{
 		GitOptions: server.GitOptions{

@@ -187,7 +187,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	if len(m.flow.Processors.Validators) > 0 {
 		errs := make([]error, 0)
 		successfulValidationResults := make([]*gitops.ValidationResult, 0)
-		failedValidationResults := make([]*gitops.ValidationResult, 0)
+		failedValidationResults := make(map[string][]*gitops.ValidationResult, 0)
 
 		err = filepath.WalkDir(req.Paths.UpdatedManifestsDir, func(path string, d os.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -221,9 +221,11 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 					if result.IsValid {
 						successfulValidationResults = append(successfulValidationResults, result)
 					} else {
-						failedValidationResults = append(failedValidationResults, result)
+						failedValidationResults[path] = append(failedValidationResults[path], result)
 					}
-					errs = append(errs, err)
+					if err != nil {
+						errs = append(errs, fmt.Errorf("failed to validate %s: %w", path, err))
+					}
 				}
 			}
 			return nil
@@ -239,9 +241,12 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 		if len(failedValidationResults) > 0 {
 			slog.Info("validations failed", "count", len(failedValidationResults))
 			m.report.Failure("%d validation(s) failed", len(failedValidationResults))
-			errorStrings := util.Map(failedValidationResults, func(r *gitops.ValidationResult) string {
-				return strings.Join(util.Map(r.Errors, func(e error) string { return e.Error() }), "\n")
-			})
+			errorStrings := make([]string, 0)
+			for path, results := range failedValidationResults {
+				for _, result := range results {
+					errorStrings = append(errorStrings, fmt.Sprintf("%s: %s", path, strings.Join(util.Map(result.Errors, func(e error) string { return e.Error() }), "\n")))
+				}
+			}
 			respondWithError(fmt.Errorf("invalid manifests: \n%s", strings.Join(errorStrings, "\n\n")))
 		}
 	} else {
