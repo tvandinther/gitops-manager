@@ -1,0 +1,15 @@
+apiVersion: "argoproj.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: "test"
+  namespace: "test"
+  labels:
+    app: "test"
+  annotations:
+    helm.sh/hook: post-install
+spec:
+  source:
+    directory:
+      recurse: true
+    # helm:
+    #   chart: "foo"

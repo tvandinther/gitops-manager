@@ -12,7 +12,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-func clone(remoteURL *url.URL, directory string, ref plumbing.ReferenceName, depth int) (*git.Repository, error) {
+func Clone(remoteURL *url.URL, directory string, ref plumbing.ReferenceName, depth int) (*git.Repository, error) {
 	cloneOpts := &git.CloneOptions{
 		URL:           remoteURL.String(),
 		Progress:      nil,
@@ -25,12 +25,12 @@ func clone(remoteURL *url.URL, directory string, ref plumbing.ReferenceName, dep
 	return git.PlainClone(directory, false, cloneOpts)
 }
 
-type author struct {
+type Author struct {
 	Name  string
 	Email string
 }
 
-func commit(repo *git.Repository, wt *git.Worktree, author author, commitSubject, commitBody string) error {
+func Commit(repo *git.Repository, wt *git.Worktree, author *Author, commitSubject, commitBody string) error {
 	var err error
 
 	if wt == nil {
@@ -64,7 +64,7 @@ func commit(repo *git.Repository, wt *git.Worktree, author author, commitSubject
 	return nil
 }
 
-func push(repo *git.Repository, branchRefName plumbing.ReferenceName) error {
+func Push(repo *git.Repository, branchRefName plumbing.ReferenceName) error {
 	remoteName := "origin"
 	slog.Info("pushing refs", "localRef", branchRefName.Short(), "remoteRef", remoteName)
 	err := repo.Push(&git.PushOptions{
@@ -82,7 +82,7 @@ func push(repo *git.Repository, branchRefName plumbing.ReferenceName) error {
 	return nil
 }
 
-func getOrCreateBranch(repo *git.Repository, branchName, sourceBranchName *plumbing.ReferenceName) (*plumbing.Reference, error) {
+func GetOrCreateBranch(repo *git.Repository, branchName, sourceBranchName *plumbing.ReferenceName) (*plumbing.Reference, error) {
 	var branchRef *plumbing.Reference
 
 	remoteRefName := plumbing.NewRemoteReferenceName("origin", branchName.Short())
@@ -90,18 +90,18 @@ func getOrCreateBranch(repo *git.Repository, branchName, sourceBranchName *plumb
 
 	if err == plumbing.ErrReferenceNotFound {
 		if sourceBranchName == nil {
-			branchRef, err = createOrphanBranch(repo, *branchName)
+			branchRef, err = CreateOrphanBranch(repo, *branchName)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create orphan branch: %w", err)
 			}
 		} else {
-			branchRef, err = createBranch(repo, *branchName, *sourceBranchName)
+			branchRef, err = CreateBranch(repo, *branchName, *sourceBranchName)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create branch: %s: %w", branchName, err)
 			}
 		}
 	} else {
-		branchRef, err = createBranch(repo, *branchName, remoteRefName)
+		branchRef, err = CreateBranch(repo, *branchName, remoteRefName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create branch: %s: %w", branchName, err)
 		}
@@ -110,7 +110,7 @@ func getOrCreateBranch(repo *git.Repository, branchName, sourceBranchName *plumb
 	return branchRef, nil
 }
 
-func createBranch(repo *git.Repository, branchRefName, headRefName plumbing.ReferenceName) (*plumbing.Reference, error) {
+func CreateBranch(repo *git.Repository, branchRefName, headRefName plumbing.ReferenceName) (*plumbing.Reference, error) {
 	slog.Debug("creating branch", "branchName", branchRefName)
 
 	headRef, err := repo.Reference(headRefName, true)
@@ -128,7 +128,7 @@ func createBranch(repo *git.Repository, branchRefName, headRefName plumbing.Refe
 	return ref, nil
 }
 
-func createOrphanBranch(repo *git.Repository, branchRefName plumbing.ReferenceName) (*plumbing.Reference, error) {
+func CreateOrphanBranch(repo *git.Repository, branchRefName plumbing.ReferenceName) (*plumbing.Reference, error) {
 	slog.Debug("creating branch", "orphan", true, "branchName", branchRefName)
 	symRef := plumbing.NewSymbolicReference(plumbing.HEAD, branchRefName)
 

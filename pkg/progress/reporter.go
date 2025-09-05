@@ -63,6 +63,10 @@ func (p *Reporter) Progress(s string, args ...any) {
 	}
 }
 
+func (p *Reporter) BasicProgress(s string) {
+	p.Progress("%s", s)
+}
+
 func (p *Reporter) Success(s string, args ...any) {
 	p.progressChan <- &pb.Progress{
 		Kind:   pb.ProgressKind_SUCCESS,

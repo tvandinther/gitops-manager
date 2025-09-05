@@ -23,8 +23,7 @@ const (
 
 type Repository struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Owner         string                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -59,16 +58,9 @@ func (*Repository) Descriptor() ([]byte, []int) {
 	return file_common_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Repository) GetOwner() string {
+func (x *Repository) GetUrl() string {
 	if x != nil {
-		return x.Owner
-	}
-	return ""
-}
-
-func (x *Repository) GetName() string {
-	if x != nil {
-		return x.Name
+		return x.Url
 	}
 	return ""
 }
@@ -77,11 +69,10 @@ var File_common_proto protoreflect.FileDescriptor
 
 const file_common_proto_rawDesc = "" +
 	"\n" +
-	"\fcommon.proto\x12\x06gitops\"6\n" +
+	"\fcommon.proto\x12\x06gitops\"\x1e\n" +
 	"\n" +
-	"Repository\x12\x14\n" +
-	"\x05owner\x18\x01 \x01(\tR\x05owner\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04nameB.Z,github.com/tvandinther/gitops-manager/gitopsb\x06proto3"
+	"Repository\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03urlB.Z,github.com/tvandinther/gitops-manager/gitopsb\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
