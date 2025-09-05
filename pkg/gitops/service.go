@@ -34,13 +34,13 @@ type Service struct {
 }
 
 type environmentConfig struct {
-	branches         environmentBranches
+	branches         EnvironmentBranches
 	environmentName  string
 	applicationName  string
 	updateIdentifier string
 }
 
-type environmentBranches struct {
+type EnvironmentBranches struct {
 	Trunk plumbing.ReferenceName
 	Next  plumbing.ReferenceName
 }
@@ -134,7 +134,7 @@ func (s *Service) InitRepository(remoteURL *url.URL, directory string) error {
 	return nil
 }
 
-func initialiseEnvironmentBranch(repo *git.Repository, environmentBranches environmentBranches, author *igit.Author) (*plumbing.Reference, error) {
+func initialiseEnvironmentBranch(repo *git.Repository, environmentBranches EnvironmentBranches, author *igit.Author) (*plumbing.Reference, error) {
 	ref, err := igit.CreateOrphanBranch(repo, environmentBranches.Trunk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create orphan branch: %w", err)
@@ -157,16 +157,16 @@ func initialiseEnvironmentBranch(repo *git.Repository, environmentBranches envir
 	return ref, nil
 }
 
-func (s *Service) GetEnvironmentBranches() *environmentBranches {
+func (s *Service) GetEnvironmentBranches() *EnvironmentBranches {
 	return &s.environmentConfig.branches
 }
 
-func getEnvironmentBranchRefNames(environment, appName, updateIdentifier string) environmentBranches {
+func getEnvironmentBranchRefNames(environment, appName, updateIdentifier string) EnvironmentBranches {
 	prefix := "environment/"
 	trunkBranch := prefix + environment
 	nextBranch := fmt.Sprintf("%s%s-next/%s/%s", prefix, environment, appName, updateIdentifier)
 
-	return environmentBranches{
+	return EnvironmentBranches{
 		Trunk: plumbing.NewBranchReferenceName(trunkBranch),
 		Next:  plumbing.NewBranchReferenceName(nextBranch),
 	}
