@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/tvandinther/gitops-manager/pkg/flow"
 	"github.com/tvandinther/gitops-manager/pkg/gitops"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/authenticator"
+	"github.com/tvandinther/gitops-manager/pkg/gitops/authorisor"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/committer"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/copier"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/reviewer"
@@ -40,7 +42,7 @@ func main() {
 	}
 
 	flow := flow.New(&flow.Strategies{
-		RequestAuthorisation: gitops.NoAuthorisation,
+		RequestAuthorisation: authorisor.NoAuthorisation,
 		CloneAuthentication:  authenticator,
 		Branch:               nil,
 		FileCopy: &copier.Subpath{
@@ -51,7 +53,7 @@ func main() {
 			Author:        gitAuthor,
 			CommitSubject: "Update rendered manifests",
 			CommitMessageFn: func(req *gitops.Request) string {
-				return "Update rendered manifests"
+				return fmt.Sprintf("Update rendered manifests for %s", req.AppName)
 			},
 		},
 		CreateReview:   reviewer,

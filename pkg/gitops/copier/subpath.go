@@ -11,7 +11,8 @@ import (
 type Subpath struct {
 	// Required to contain destructive actions. E.g. "manifests"
 	ManifestDirectoryName string
-	Path                  string
+	// Relative to ManifestDirectoryName
+	Path string
 }
 
 func (c *Subpath) CopyFiles(src fs.FS, dst string, sendMsg func(string)) error {

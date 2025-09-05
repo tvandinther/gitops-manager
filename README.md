@@ -29,6 +29,9 @@ The way in which parts of the flow work are implemented using interfaces that ca
 
 ## Flow Components
 
+- [Strategies Reference](./docs/strategies.md)
+- [Processors Reference](./docs/processors.md)
+
 ### Strategies
 Strategies define how each step in the flow is executed.
 
