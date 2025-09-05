@@ -2,7 +2,7 @@ package gitops
 
 import (
 	"context"
-	"io/fs"
+	"io"
 )
 
 type ValidationResult struct {
@@ -12,5 +12,5 @@ type ValidationResult struct {
 
 type Validator interface {
 	GetTitle() string
-	Validate(ctx context.Context, dir fs.FS, error func(e error), done func(result ValidationResult), sendMsg func(string))
+	ValidateFile(ctx context.Context, file io.Reader, sendMsg func(string)) (*ValidationResult, error)
 }

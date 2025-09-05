@@ -1,8 +1,11 @@
 package gitops
 
-import "context"
+import (
+	"context"
+	"io"
+)
 
 type Mutator interface {
 	GetTitle() string
-	Mutate(ctx context.Context, dir string, setError func(e error), next func(), sendMsg func(string))
+	MutateFile(ctx context.Context, inputFile io.Reader, outputFile io.Writer, sendMsg func(string)) error
 }

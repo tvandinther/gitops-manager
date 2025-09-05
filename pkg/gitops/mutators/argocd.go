@@ -3,9 +3,7 @@ package mutators
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"log/slog"
-	"path/filepath"
+	"io"
 
 	yamlUtil "github.com/tvandinther/gitops-manager/pkg/util"
 	"gopkg.in/yaml.v3"
@@ -18,49 +16,26 @@ func (h *HelmHooksToArgoCD) GetTitle() string {
 	return "Helm Hooks to Argo CD sync hooks"
 }
 
-func (h *HelmHooksToArgoCD) Mutate(ctx context.Context, dir string, setError func(e error), next func(), sendMsg func(string)) {
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
+func (h *HelmHooksToArgoCD) MutateFile(ctx context.Context, inputFile io.Reader, outputFile io.Writer, sendMsg func(string)) error {
+	var root yaml.Node
+	err := yaml.NewDecoder(inputFile).Decode(&root)
+	if err != nil {
+		return fmt.Errorf("failed to parse file as YAML: %w", err)
+	}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	for _, doc := range root.Content {
+		metadata := yamlUtil.GetOrCreateMap(doc, "metadata")
+		annotations := yamlUtil.GetOrCreateMap(metadata, "annotations")
 
-		if !d.IsDir() {
-			log := slog.With("path", path)
-			log.Debug("mutating file")
+		convertHelmHooks(annotations)
+	}
 
-			root, err := yamlUtil.ParseFileToYamlNode(path)
-			if err != nil {
-				return fmt.Errorf("failed to parse file as YAML: %w", err)
-			}
+	err = yaml.NewEncoder(outputFile).Encode(&root)
+	if err != nil {
+		return fmt.Errorf("failed to encode YAML: %w", err)
+	}
 
-			for _, doc := range root.Content {
-				metadata := yamlUtil.GetOrCreateMap(doc, "metadata")
-				annotations := yamlUtil.GetOrCreateMap(metadata, "annotations")
-
-				convertHelmHooks(annotations)
-			}
-
-			err = yamlUtil.WriteToFile(path, root)
-			if err != nil {
-				return fmt.Errorf("failed to write file: %w", err)
-			}
-
-			log.Debug("file mutated")
-
-			return nil
-		}
-
-		return nil
-	})
-
-	setError(err)
-	next()
+	return nil
 }
 
 var helmToArgoCdHook map[string]string = map[string]string{
