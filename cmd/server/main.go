@@ -63,5 +63,6 @@ func main() {
 			Author: gitAuthor,
 		},
 	}).WithDefaultLogger()
+	
 	server.Run()
 }
