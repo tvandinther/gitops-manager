@@ -7,14 +7,15 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"code.gitea.io/sdk/gitea"
 	"github.com/tvandinther/gitops-manager/pkg/gitops"
 )
 
 type Gitea struct {
-	client       *gitea.Client
-	mergeOptions *gitea.MergePullRequestOption
+	Client       *gitea.Client
+	MergeOptions *gitea.MergePullRequestOption
 }
 
 type GiteaMergeOptions struct {
@@ -29,8 +30,9 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, environme
 
 	var pullRequest *gitea.PullRequest
 
+	slog.Info("listing pull requests to find existing", "owner", owner, "repo", repo)
 	for pageIndex := 0; true; pageIndex++ {
-		pullRequests, _, err := g.client.ListRepoPullRequests(owner, repo, gitea.ListPullRequestsOptions{
+		pullRequests, _, err := g.Client.ListRepoPullRequests(owner, repo, gitea.ListPullRequestsOptions{
 			State: gitea.StateOpen,
 			ListOptions: gitea.ListOptions{
 				Page:     pageIndex,
@@ -63,7 +65,7 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, environme
 		}, nil
 	}
 
-	pullRequest, response, err := g.client.CreatePullRequest(owner, repo, gitea.CreatePullRequestOption{
+	pullRequest, response, err := g.Client.CreatePullRequest(owner, repo, gitea.CreatePullRequestOption{
 		Head:  environmentBranches.Next.Short(),
 		Base:  environmentBranches.Trunk.Short(),
 		Title: fmt.Sprintf("Promote %s [%s] to %s", req.AppName, req.UpdateIdentifier, req.Environment),
@@ -94,11 +96,14 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, environme
 		return nil, fmt.Errorf("did not receieve 201 CREATED status code")
 	}
 
-	return &gitops.CreateReviewResult{
+	result := &gitops.CreateReviewResult{
 		Created:   true,
 		URL:       pullRequest.URL,
 		Completed: pullRequest.HasMerged,
-	}, nil
+	}
+	slog.Info("created pull request", "result", result)
+
+	return result, nil
 }
 
 func (g *Gitea) CompleteReview(ctx context.Context, req *gitops.Request, createReviewResult *gitops.CreateReviewResult, sendMsg func(string)) (bool, error) {
@@ -117,14 +122,24 @@ func (g *Gitea) CompleteReview(ctx context.Context, req *gitops.Request, createR
 		return false, fmt.Errorf("failed to parse ID from pull request URL: %w", err)
 	}
 
-	merged, response, err := g.client.MergePullRequest(owner, repo, pullRequestId, *g.mergeOptions)
+	sendMsg("merging pull request")
+	retries := 0
+	retryLimit := 1
+Merge:
+	merged, response, err := g.Client.MergePullRequest(owner, repo, pullRequestId, *g.MergeOptions)
 	if err != nil {
 		return false, fmt.Errorf("failed to merge pull request: %w", err)
 	}
 	if response.StatusCode != 200 {
+		if response.StatusCode == 405 && retries < retryLimit {
+			time.Sleep(1 * time.Second)
+			retries++
+			goto Merge
+		}
 		sendMsg(fmt.Sprintf("received %d status code", response.StatusCode))
 		return false, fmt.Errorf("did not receieve 200 OK status code")
 	}
+	sendMsg("pull request merged")
 
 	return merged, nil
 }
@@ -137,6 +152,8 @@ func getOwnerRepo(repositoryUrl string) (string, string, error) {
 
 	pathSegments := strings.Split(targetRepositoryUrl.Path, "/")
 	ownerRepo := pathSegments[len(pathSegments)-2:]
+	owner := ownerRepo[0]
+	repo := strings.TrimSuffix(ownerRepo[1], ".git")
 
-	return ownerRepo[0], ownerRepo[1], nil
+	return owner, repo, nil
 }

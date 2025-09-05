@@ -1,8 +1,10 @@
 package main
 
 import (
+	"log"
 	"os"
 
+	"code.gitea.io/sdk/gitea"
 	"github.com/tvandinther/gitops-manager/internal/git"
 	"github.com/tvandinther/gitops-manager/pkg/flow"
 	"github.com/tvandinther/gitops-manager/pkg/gitops"
@@ -14,18 +16,12 @@ import (
 )
 
 func main() {
-	// repositoryClient, err := gitea.NewClient(&gitea.ClientOptions{
-	// 	Host: os.Getenv("GITEA_HOST"),
-	// 	AccessTokenAuth: gitea.AccessTokenAuth{
-	// 		Username:    os.Getenv("GITEA_USER"),
-	// 		AccessToken: os.Getenv("GITEA_ACCESS_TOKEN"),
-	// 	},
-	// })
-	// if err != nil {
-	// 	log.Fatalf("failed to create Gitea client: %s", err)
-	// }
+	giteaClient, err := gitea.NewClient(os.Getenv("GITEA_HOST"), gitea.SetBasicAuth(os.Getenv("GITEA_USER"), os.Getenv("GITEA_ACCESS_TOKEN")))
+	if err != nil {
+		log.Fatalf("failed to create Gitea client: %s", err)
+	}
 
-	giteaAuthenticator := &authenticator.UserPassword{
+	authenticator := &authenticator.UserPassword{
 		Username: os.Getenv("GITEA_USER"),
 		Password: os.Getenv("GITEA_ACCESS_TOKEN"),
 	}
@@ -35,17 +31,21 @@ func main() {
 		Email: "gitops-manager@example.com",
 	}
 
-	dummyReviewer := &reviewer.Dummy{
-		URL:      "https://example.com/review/1",
-		Complete: true,
+	reviewer := &reviewer.Gitea{
+		Client: giteaClient,
+		MergeOptions: &gitea.MergePullRequestOption{
+			Style:                  gitea.MergeStyleRebase,
+			DeleteBranchAfterMerge: true,
+		},
 	}
 
 	flow := flow.New(&flow.Strategies{
 		RequestAuthorisation: gitops.NoAuthorisation,
-		CloneAuthentication:  giteaAuthenticator,
+		CloneAuthentication:  authenticator,
 		Branch:               nil,
 		FileCopy: &copier.Subpath{
-			Path: ".",
+			ManifestDirectoryName: "manifests",
+			Path:                  ".",
 		},
 		Commit: &committer.Standard{
 			Author:        gitAuthor,
@@ -54,8 +54,8 @@ func main() {
 				return "Update rendered manifests"
 			},
 		},
-		CreateReview:   dummyReviewer,
-		CompleteReview: dummyReviewer,
+		CreateReview:   reviewer,
+		CompleteReview: reviewer,
 	})
 
 	server := server.New(flow, &server.ManagerOpts{

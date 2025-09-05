@@ -104,7 +104,10 @@ func (s *Service) InitRepository(remoteURL *url.URL, directory string) error {
 			return fmt.Errorf("failed to initialise environment branch: %w", err)
 		}
 
-		igit.Push(repo, environmentBranch.Target())
+		err = igit.Push(repo, environmentBranch.Target())
+		if err != nil {
+			return err
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
@@ -234,7 +237,7 @@ func (s *Service) Push(configRepository Repository) error {
 	s.report.Progress("pushing %s to %s", environmentBranches.Next, configRepository)
 	err := igit.Push(s.repository, environmentBranches.Next)
 	if err != nil {
-		return fmt.Errorf("failed to push: %w", err)
+		return err
 	}
 
 	return nil

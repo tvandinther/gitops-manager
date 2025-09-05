@@ -66,9 +66,14 @@ func Commit(repo *git.Repository, wt *git.Worktree, author *Author, commitSubjec
 
 func Push(repo *git.Repository, branchRefName plumbing.ReferenceName) error {
 	remoteName := "origin"
-	slog.Info("pushing refs", "localRef", branchRefName.Short(), "remoteRef", remoteName)
-	err := repo.Push(&git.PushOptions{
-		RemoteName: remoteName,
+	remote, err := repo.Remote(remoteName)
+	if err != nil {
+		return fmt.Errorf("failed to find remote: %w", err)
+	}
+
+	slog.Info("pushing refs", "localRef", branchRefName.Short(), "remoteName", remote.Config().Name)
+	err = repo.Push(&git.PushOptions{
+		RemoteName: remote.Config().Name,
 		Progress:   nil,
 		RefSpecs: []config.RefSpec{
 			config.RefSpec(fmt.Sprintf("+%s:%s", branchRefName, branchRefName)),

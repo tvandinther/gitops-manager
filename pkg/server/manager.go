@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-git/go-git/v5"
 	igit "github.com/tvandinther/gitops-manager/internal/git"
 	"github.com/tvandinther/gitops-manager/internal/util"
 	"github.com/tvandinther/gitops-manager/pkg/flow"
@@ -207,16 +208,25 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 		return respondWithError(err)
 	}
 
-	m.report.Success("Committed %d changes to the configuration repository", response.UpdatedFilesCount)
+	if response.UpdatedFilesCount == 0 {
+		m.report.Success("No files to be updated in the configuration repository")
+		goto End
+	} else {
+		m.report.Success("Committed %d changes to the configuration repository", response.UpdatedFilesCount)
+	}
 
 	m.report.Heading("Pushing changes to the configuration repository")
 
 	if !req.DryRun {
 		err = gitopsService.Push(req.TargetRepository)
 		if err != nil {
-			m.report.Failure("Failed to push changes to the configuration repository")
+			if err == git.NoErrAlreadyUpToDate {
+				m.report.Progress("already up-to-date")
+			} else {
+				m.report.Failure("Failed to push changes to the configuration repository")
 
-			return respondWithError(err)
+				return respondWithError(err)
+			}
 		}
 
 		m.report.Success("Pushed %d changes to %s", response.UpdatedFilesCount, req.TargetRepository)
@@ -227,25 +237,21 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 	m.report.Heading("Creating review")
 
-	var createReviewResult *gitops.CreateReviewResult
-
 	if !req.DryRun {
-		createReviewResult, err := strategies.CreateReview.CreateReview(ctx, req, environmentBranches, m.report.BasicProgress)
+		response.ReviewResult, err = strategies.CreateReview.CreateReview(ctx, req, environmentBranches, m.report.BasicProgress)
 		if err != nil {
 			slog.Info("failed to create review", "error", err)
 			m.report.Failure("Failed to create review")
 			return respondWithError(fmt.Errorf("failed to create review: %w", err))
 		}
 
-		if !createReviewResult.Created {
+		if !response.ReviewResult.Created {
 			m.report.Failure("Failed to create review")
 			return respondWithError(fmt.Errorf("failed to create review"))
 		}
 
-		m.report.Progress("Review URL: %s", createReviewResult.URL)
+		m.report.Progress("Review URL: %s", response.ReviewResult.URL)
 		m.report.Success("Created review")
-
-		response.ReviewResult = createReviewResult
 	} else {
 		response.ReviewResult.Created = true
 		m.report.Success("(dry-run) Created review")
@@ -254,7 +260,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	if req.AutoReview {
 		m.report.Heading("Completing review")
 		if !req.DryRun {
-			completed, err := strategies.CompleteReview.CompleteReview(ctx, req, createReviewResult, m.report.BasicProgress)
+			completed, err := strategies.CompleteReview.CompleteReview(ctx, req, response.ReviewResult, m.report.BasicProgress)
 			if err != nil {
 				slog.Info("failed to complete review", "error", err)
 				m.report.Failure("Failed to complete review")
@@ -275,6 +281,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 		}
 	}
 
+End:
 	response.Msg = "Git operations completed successfully."
 	m.report.Success("%s", response.Msg)
 
