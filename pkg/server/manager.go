@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -109,27 +111,55 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	if len(m.flow.Processors.Mutators) > 0 {
 		errs := make([]error, 0)
 
-		nextFns := make([]func(), len(m.flow.Processors.Mutators)+1)
-		nextFns[len(nextFns)-1] = func() {}
+		nextFns := make([]func(*os.File), len(m.flow.Processors.Mutators)+1)
+		nextFns[len(nextFns)-1] = func(file *os.File) {}
 
 		for i, mutator := range m.flow.Processors.Mutators {
-			nextFns[i] = func() {
+			nextFns[i] = func(file *os.File) {
 				m.report.Progress("running mutator: %s", mutator.GetTitle())
-				mutator.Mutate(
+
+				inputFile := file
+				outputFile := io.NewOffsetWriter(file, 0)
+
+				mutateErr := mutator.MutateFile(
 					ctx,
-					req.Paths.UpdatedManifestsDir,
-					func(e error) {
-						if e != nil {
-							errs = append(errs, e)
-						}
-					},
-					nextFns[i+1],
+					inputFile,
+					outputFile,
 					m.report.BasicProgress,
 				)
+				if mutateErr != nil {
+					errs = append(errs, mutateErr)
+				}
+
+				nextFns[i+1](file)
 			}
 		}
 
-		nextFns[0]()
+		err = filepath.WalkDir(req.Paths.UpdatedManifestsDir, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			if !d.IsDir() {
+				m.report.Progress("mutating file: %s", path)
+
+				file, err := os.OpenFile(path, os.O_RDWR, 0644)
+				if err != nil {
+					return fmt.Errorf("failed to open file: %w", err)
+				}
+				defer file.Close()
+
+				nextFns[0](file)
+			}
+
+			return nil
+		})
 
 		if len(errs) > 0 {
 			slog.Error("errors occured during mutation", "count", len(errs))
@@ -156,27 +186,48 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 	if len(m.flow.Processors.Validators) > 0 {
 		errs := make([]error, 0)
-		successfulValidationResults := make([]gitops.ValidationResult, 0)
-		failedValidationResults := make([]gitops.ValidationResult, 0)
+		successfulValidationResults := make([]*gitops.ValidationResult, 0)
+		failedValidationResults := make([]*gitops.ValidationResult, 0)
 
-		for _, validator := range m.flow.Processors.Validators {
-			slog.Debug("running validator", "title", validator.GetTitle())
-			m.report.Progress("running validator %s", validator.GetTitle())
+		err = filepath.WalkDir(req.Paths.UpdatedManifestsDir, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
 
-			validator.Validate(
-				ctx,
-				os.DirFS(req.Paths.UpdatedManifestsDir),
-				func(e error) { errs = append(errs, err) },
-				func(result gitops.ValidationResult) {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			if !d.IsDir() {
+				m.report.Progress("validating file: %s", path)
+
+				file, err := os.OpenFile(path, os.O_RDONLY, 0644)
+				if err != nil {
+					return fmt.Errorf("failed to open file: %w", err)
+				}
+				defer file.Close()
+
+				for _, validator := range m.flow.Processors.Validators {
+					slog.Debug("running validator", "title", validator.GetTitle())
+					m.report.Progress("running validator %s", validator.GetTitle())
+
+					result, err := validator.ValidateFile(
+						ctx,
+						file,
+						m.report.BasicProgress,
+					)
 					if result.IsValid {
 						successfulValidationResults = append(successfulValidationResults, result)
 					} else {
 						failedValidationResults = append(failedValidationResults, result)
 					}
-				},
-				m.report.BasicProgress,
-			)
-		}
+					errs = append(errs, err)
+				}
+			}
+			return nil
+		})
 
 		if len(errs) > 0 {
 			slog.Error("errors occured during validation", "count", len(errs))
@@ -188,7 +239,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 		if len(failedValidationResults) > 0 {
 			slog.Info("validations failed", "count", len(failedValidationResults))
 			m.report.Failure("%d validation(s) failed", len(failedValidationResults))
-			errorStrings := util.Map(failedValidationResults, func(r gitops.ValidationResult) string {
+			errorStrings := util.Map(failedValidationResults, func(r *gitops.ValidationResult) string {
 				return strings.Join(util.Map(r.Errors, func(e error) string { return e.Error() }), "\n")
 			})
 			respondWithError(fmt.Errorf("invalid manifests: \n%s", strings.Join(errorStrings, "\n\n")))

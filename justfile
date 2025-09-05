@@ -23,7 +23,7 @@ run-client:
     -target-repository $GITEA_HOST/admin/config.git \
     -env test \
     -dry-run=false \
-    -auto-review \
+    -auto-review=false \
     -app foo \
     -update-id test \
     -source-attributes '{"test": "foo"}' \
