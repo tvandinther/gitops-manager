@@ -1,3 +1,8 @@
+export LOG_LEVEL := "debug"
+export GITEA_HOST := "http://localhost:3000"
+export GITEA_USER := "gitops-manager"
+export GITEA_ACCESS_TOKEN := "58359fe2e5db3884c70d8646971ebf5cae21fd63"
+
 default:
   @just --choose
 
@@ -11,7 +16,16 @@ down:
     docker compose down
 
 run-server:
-  LOG_LEVEL=DEBUG go run cmd/server/main.go
+  go run cmd/server/main.go
 
 run-client:
-  LOG_LEVEL=DEBUG go run cmd/client/main.go -target-repository http://localhost:3000/admin/config.git -env test -dry-run -auto-review -app foo -source-attributes '{"test": "foo"}' example-files localhost:50051 
+  go run cmd/client/main.go \
+    -target-repository $GITEA_HOST/admin/config.git \
+    -env test \
+    -dry-run=false \
+    -auto-review \
+    -app foo \
+    -update-id test \
+    -source-attributes '{"test": "foo"}' \
+    example-files \
+    localhost:50051 
