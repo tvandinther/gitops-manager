@@ -109,22 +109,23 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	if len(m.flow.Processors.Mutators) > 0 {
 		errs := make([]error, 0)
 
-		nextFns := make([]func(), len(m.flow.Processors.Mutators))
+		nextFns := make([]func(), len(m.flow.Processors.Mutators)+1)
+		nextFns[len(nextFns)-1] = func() {}
 
 		for i, mutator := range m.flow.Processors.Mutators {
-			if i < len(m.flow.Processors.Mutators)-1 {
-				nextFns[i] = func() {
-					m.report.Progress("running mutator %s", mutator.GetTitle())
-					mutator.Mutate(
-						ctx,
-						req.Paths.UpdatedManifestsDir,
-						func(e error) { errs = append(errs, err) },
-						nextFns[i+1],
-						m.report.BasicProgress,
-					)
-				}
-			} else {
-				nextFns[i] = func() {}
+			nextFns[i] = func() {
+				m.report.Progress("running mutator: %s", mutator.GetTitle())
+				mutator.Mutate(
+					ctx,
+					req.Paths.UpdatedManifestsDir,
+					func(e error) {
+						if e != nil {
+							errs = append(errs, e)
+						}
+					},
+					nextFns[i+1],
+					m.report.BasicProgress,
+				)
 			}
 		}
 
@@ -134,7 +135,16 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 			slog.Error("errors occured during mutation", "count", len(errs))
 			m.report.Failure("%d error(s) occured during mutation", len(errs))
 
-			respondWithError(errors.New(strings.Join(util.Map(errs, func(e error) string { return e.Error() }), "\n")))
+			messages := util.Map(errs, func(e error) string {
+				if e != nil {
+					return e.Error()
+				} else {
+					return ""
+				}
+			})
+			joinedMessage := strings.Join(messages, "\n")
+			err = errors.New(joinedMessage)
+			return respondWithError(err)
 		}
 	} else {
 		m.report.Progress("no mutations to be run")
