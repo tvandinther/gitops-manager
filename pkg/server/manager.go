@@ -227,8 +227,10 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 	m.report.Heading("Creating review")
 
+	var createReviewResult *gitops.CreateReviewResult
+
 	if !req.DryRun {
-		createReviewResult, err := strategies.CreateReview.CreateReview(ctx, req, m.report.BasicProgress)
+		createReviewResult, err := strategies.CreateReview.CreateReview(ctx, req, environmentBranches, m.report.BasicProgress)
 		if err != nil {
 			slog.Info("failed to create review", "error", err)
 			m.report.Failure("Failed to create review")
@@ -252,7 +254,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	if req.AutoReview {
 		m.report.Heading("Completing review")
 		if !req.DryRun {
-			completed, err := strategies.CompleteReview.CompleteReview(ctx, req, m.report.BasicProgress)
+			completed, err := strategies.CompleteReview.CompleteReview(ctx, req, createReviewResult, m.report.BasicProgress)
 			if err != nil {
 				slog.Info("failed to complete review", "error", err)
 				m.report.Failure("Failed to complete review")

@@ -11,7 +11,7 @@ type Dummy struct {
 	Complete bool
 }
 
-func (r *Dummy) CreateReview(ctx context.Context, req *gitops.Request, sendMsg func(string)) (*gitops.CreateReviewResult, error) {
+func (r *Dummy) CreateReview(ctx context.Context, req *gitops.Request, createReviewResult *gitops.CreateReviewResult, sendMsg func(string)) (*gitops.CreateReviewResult, error) {
 	result := &gitops.CreateReviewResult{
 		Created:   true,
 		Completed: false,
@@ -21,6 +21,6 @@ func (r *Dummy) CreateReview(ctx context.Context, req *gitops.Request, sendMsg f
 	return result, nil
 }
 
-func (r *Dummy) CompleteReview(ctx context.Context, req *gitops.Request, sendMsg func(string)) (bool, error) {
+func (r *Dummy) CompleteReview(ctx context.Context, req *gitops.Request, createReviewResult *gitops.CreateReviewResult, sendMsg func(string)) (bool, error) {
 	return r.Complete, nil
 }
