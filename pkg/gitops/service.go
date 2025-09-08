@@ -104,8 +104,7 @@ func (s *Service) InitRepository(remoteURL *url.URL, directory string) error {
 			return fmt.Errorf("failed to initialise environment branch: %w", err)
 		}
 
-		slog.Info("environment branch", "branch", environmentBranch.Name())
-		err = igit.Push(repo, environmentBranch.Name())
+		err = igit.Push(repo, igit.Deref(environmentBranch))
 		if err != nil {
 			return err
 		}
@@ -142,27 +141,35 @@ func (s *Service) initialiseEnvironmentBranch(repo *git.Repository) (*plumbing.R
 	var ref *plumbing.Reference
 	var err error
 
-	orphan := s.target.Branch.UpstreamSource == ""
-
-	if orphan {
-		ref, err = igit.CreateOrphanBranch(repo, s.environmentConfig.branches.Trunk)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create orphan branch: %w", err)
-		}
-	} else {
-		ref, err = igit.CreateBranch(repo, s.environmentConfig.branches.Trunk, plumbing.NewBranchReferenceName(s.target.Branch.UpstreamSource))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create branch: %s: %w", s.environmentConfig.branches.Next, err)
-		}
-	}
-
 	wt, err := repo.Worktree()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get worktree: %w", err)
 	}
-	err = safeRemoveDir(wt, s.target.Directory)
-	if err != nil && err != git.ErrGlobNoMatches {
-		return nil, fmt.Errorf("failed to clear worktree: %w", err)
+
+	orphan := s.target.Branch.UpstreamSource == ""
+
+	if orphan {
+		s.report.Progress("creating orphan branch %s", s.environmentConfig.branches.Trunk)
+		ref, err = igit.CreateOrphanBranch(repo, s.environmentConfig.branches.Trunk)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create orphan branch: %w", err)
+		}
+
+		err = safeRemoveDir(wt, "") // Create a completely empty worktree for orphan branches
+		if err != nil && err != git.ErrGlobNoMatches {
+			return nil, fmt.Errorf("failed to clear worktree: %w", err)
+		}
+	} else {
+		s.report.Progress("creating branch %s from %s", s.environmentConfig.branches.Trunk, s.target.Branch.UpstreamSource)
+		ref, err = igit.CreateBranch(repo, s.environmentConfig.branches.Trunk, plumbing.NewBranchReferenceName(s.target.Branch.UpstreamSource))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create branch: %s: %w", s.environmentConfig.branches.Next, err)
+		}
+
+		err = safeRemoveDir(wt, s.target.Directory)
+		if err != nil && err != git.ErrGlobNoMatches {
+			return nil, fmt.Errorf("failed to clear worktree: %w", err)
+		}
 	}
 
 	err = igit.Commit(repo, wt, s.author, "Initialise empty environment", fmt.Sprintf("Initialising %s", s.environmentConfig.branches.Trunk.Short()))

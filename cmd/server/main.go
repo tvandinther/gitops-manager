@@ -47,7 +47,7 @@ func main() {
 	flow := flow.New(&flow.Strategies{
 		RequestAuthorisation: authorisor.NoAuthorisation,
 		CloneAuthentication:  authenticator,
-		Target:               &targeters.Branch{Prefix: "environment", DirectoryName: "manifests", Orphan: true},
+		Target:               &targeters.Branch{Prefix: "environment/", DirectoryName: "manifests", Orphan: true},
 		FileCopy: &copier.Subpath{
 			Path: ".",
 		},
