@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	igit "github.com/tvandinther/gitops-manager/internal/git"
@@ -115,6 +116,16 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 	m.report.Heading("Mutating manifests")
 
+	mutationProcessReport := m.report.NewProcess(&progress.ProcessReporterOptions{
+		ReportPeriod:   10 * time.Second,
+		TotalFileCount: *req.TotalFiles,
+		Template: progress.ProcessTemplate{
+			PresentAction: "mutating",
+			PastAction:    "mutated",
+			Subject:       "files",
+		},
+	})
+
 	if len(m.flow.Processors.Mutators) > 0 {
 		errs := make([]error, 0)
 
@@ -123,7 +134,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 		for i, mutator := range m.flow.Processors.Mutators {
 			nextFns[i] = func(file *os.File) {
-				m.report.Progress("running mutator: %s", mutator.GetTitle())
+				slog.Debug("running mutator", "mutator", mutator.GetTitle())
 
 				inputFile := file
 				outputFile := io.NewOffsetWriter(file, 0)
@@ -141,6 +152,8 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 				nextFns[i+1](file)
 			}
 		}
+
+		mutationProcessReport.Start(ctx)
 
 		err = filepath.WalkDir(req.Paths.UpdatedManifestsDir, func(path string, d os.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -163,10 +176,13 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 				defer file.Close()
 
 				nextFns[0](file)
+				mutationProcessReport.Increment(1)
 			}
 
 			return nil
 		})
+
+		mutationProcessReport.Done()
 
 		if len(errs) > 0 {
 			slog.Error("errors occured during mutation", "count", len(errs))
@@ -187,14 +203,26 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 		m.report.Progress("no mutations to be run")
 	}
 
-	m.report.Success("Successfully mutated manifests")
+	m.report.Success("Successfully mutated %d manifests", mutationProcessReport.ProgressCount)
 
 	m.report.Heading("Validating manifests")
+
+	validationProcessReport := m.report.NewProcess(&progress.ProcessReporterOptions{
+		ReportPeriod:   10 * time.Second,
+		TotalFileCount: *req.TotalFiles,
+		Template: progress.ProcessTemplate{
+			PresentAction: "validating",
+			PastAction:    "validated",
+			Subject:       "files",
+		},
+	})
 
 	if len(m.flow.Processors.Validators) > 0 {
 		errs := make([]error, 0)
 		successfulValidationResults := make([]*gitops.ValidationResult, 0)
 		failedValidationResults := make(map[string][]*gitops.ValidationResult, 0)
+
+		validationProcessReport.Start(ctx)
 
 		err = filepath.WalkDir(req.Paths.UpdatedManifestsDir, func(path string, d os.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -208,8 +236,6 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 			}
 
 			if !d.IsDir() {
-				m.report.Progress("validating file: %s", path)
-
 				file, err := os.OpenFile(path, os.O_RDONLY, 0644)
 				if err != nil {
 					return fmt.Errorf("failed to open file: %w", err)
@@ -218,7 +244,6 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 				for _, validator := range m.flow.Processors.Validators {
 					slog.Debug("running validator", "title", validator.GetTitle())
-					m.report.Progress("running validator %s", validator.GetTitle())
 
 					result, err := validator.ValidateFile(
 						ctx,
@@ -234,9 +259,13 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 						errs = append(errs, fmt.Errorf("failed to validate %s: %w", path, err))
 					}
 				}
+
+				validationProcessReport.Increment(1)
 			}
 			return nil
 		})
+
+		validationProcessReport.Done()
 
 		if len(errs) > 0 {
 			slog.Error("errors occured during validation", "count", len(errs))
@@ -260,7 +289,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 		m.report.Progress("no validations to be run")
 	}
 
-	m.report.Success("Successfully validated manifests")
+	m.report.Success("Successfully validated %d manifests", validationProcessReport.ProgressCount)
 
 	m.report.Heading("Copying files to the configuration repository")
 
