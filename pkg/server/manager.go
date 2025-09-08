@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -74,20 +75,26 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	}
 	m.report.Success("Request authorised")
 
+	target, err := strategies.Target.CreateTarget(req)
+	if err != nil {
+		return respondWithError(fmt.Errorf("failed to create gitops target: %w", err))
+	}
+	response.Environment.Repository = &target.Repository
+
 	gitopsService := gitops.NewService(m.report, gitops.ServiceOptions{
 		EnvironmentName:  req.Environment,
 		ApplicationName:  req.AppName,
 		UpdateIdentifier: req.UpdateIdentifier,
 		GitAuthor:        m.options.GitOptions.Author,
-	})
+	}, target)
 
 	m.report.Heading("Initialising repository")
 
 	environmentBranches := gitopsService.GetEnvironmentBranches()
 	response.Environment.RefName = environmentBranches.Trunk.Short()
 
-	slog.Debug("getting authenticated clone URL", "unauthenticatedUrl", req.TargetRepository.URL)
-	cloneUrl, err := url.Parse(req.TargetRepository.URL)
+	slog.Debug("getting authenticated clone URL", "unauthenticatedUrl", target.Repository.URL)
+	cloneUrl, err := url.Parse(target.Repository.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse target repository URL: %w", err)
 	}
@@ -257,7 +264,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 	m.report.Heading("Copying files to the configuration repository")
 
-	err = strategies.FileCopy.CopyFiles(os.DirFS(req.Paths.UpdatedManifestsDir), req.Paths.RepositoryDir, m.report.BasicProgress)
+	err = strategies.FileCopy.CopyFiles(os.DirFS(req.Paths.UpdatedManifestsDir), path.Join(req.Paths.RepositoryDir, target.Directory), m.report.BasicProgress)
 	if err != nil {
 		slog.Info("failed to copy files to the configuration repository", "error", err)
 		m.report.Failure("Failed to copy files to the configuration repository")
@@ -284,7 +291,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	m.report.Heading("Pushing changes to the configuration repository")
 
 	if !req.DryRun {
-		err = gitopsService.Push(req.TargetRepository)
+		err = gitopsService.Push(target.Repository)
 		if err != nil {
 			if err == git.NoErrAlreadyUpToDate {
 				m.report.Progress("already up-to-date")
@@ -295,16 +302,16 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 			}
 		}
 
-		m.report.Success("Pushed %d changes to %s", response.UpdatedFilesCount, req.TargetRepository)
+		m.report.Success("Pushed %d changes to %s", response.UpdatedFilesCount, target.Repository)
 	} else {
 		m.report.Progress("performing dry run, changes will not be pushed")
-		m.report.Success("(dry-run) Pushed %d changes to %s", response.UpdatedFilesCount, req.TargetRepository)
+		m.report.Success("(dry-run) Pushed %d changes to %s", response.UpdatedFilesCount, target.Repository)
 	}
 
 	m.report.Heading("Creating review")
 
 	if !req.DryRun {
-		response.ReviewResult, err = strategies.CreateReview.CreateReview(ctx, req, environmentBranches, m.report.BasicProgress)
+		response.ReviewResult, err = strategies.CreateReview.CreateReview(ctx, req, target, m.report.BasicProgress)
 		if err != nil {
 			slog.Info("failed to create review", "error", err)
 			m.report.Failure("Failed to create review")

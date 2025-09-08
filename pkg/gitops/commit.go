@@ -8,6 +8,7 @@ type CommitOptions struct {
 	Repository *git.Repository
 	Worktree   *git.Worktree
 	Request    *Request
+	Target     *Target
 }
 
 type CommitResponse struct {

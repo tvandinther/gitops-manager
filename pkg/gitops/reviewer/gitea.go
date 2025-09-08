@@ -22,8 +22,8 @@ type GiteaMergeOptions struct {
 	MergeStyle *gitea.MergeStyle
 }
 
-func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, environmentBranches *gitops.EnvironmentBranches, sendMsg func(string)) (*gitops.CreateReviewResult, error) {
-	owner, repo, err := getOwnerRepo(req.TargetRepository.URL)
+func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, target *gitops.Target, sendMsg func(string)) (*gitops.CreateReviewResult, error) {
+	owner, repo, err := getOwnerRepo(target.Repository.URL)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, environme
 
 		for _, pr := range pullRequests {
 			slog.Debug("checking pull request for environment match", "baseName", pr.Base.Name, "headName", pr.Head.Name)
-			if pr.Base.Name == environmentBranches.Trunk.Short() && pr.Head.Name == environmentBranches.Next.Short() {
+			if pr.Base.Name == target.Branch.Source && pr.Head.Name == target.Branch.Target {
 				pullRequest = pr
 				break
 			}
@@ -66,8 +66,8 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, environme
 	}
 
 	pullRequest, response, err := g.Client.CreatePullRequest(owner, repo, gitea.CreatePullRequestOption{
-		Head:  environmentBranches.Next.Short(),
-		Base:  environmentBranches.Trunk.Short(),
+		Head:  target.Branch.Target,
+		Base:  target.Branch.Source,
 		Title: fmt.Sprintf("Promote %s [%s] to %s", req.AppName, req.UpdateIdentifier, req.Environment),
 		Body: fmt.Sprintf(`<table>
   <tr>
@@ -107,7 +107,7 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, environme
 }
 
 func (g *Gitea) CompleteReview(ctx context.Context, req *gitops.Request, createReviewResult *gitops.CreateReviewResult, sendMsg func(string)) (bool, error) {
-	owner, repo, err := getOwnerRepo(req.TargetRepository.URL)
+	owner, repo, err := getOwnerRepo(createReviewResult.URL)
 	if err != nil {
 		return false, err
 	}
