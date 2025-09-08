@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"code.gitea.io/sdk/gitea"
 	"github.com/tvandinther/gitops-manager/internal/git"
@@ -63,7 +64,7 @@ func main() {
 	})
 
 	flow.WithMutators(&mutators.HelmHooksToArgoCD{})
-	flow.WithValidators(&validators.EmptyFile{})
+	flow.WithValidators(&validators.EmptyFile{}, &validators.Delay{Duration: 1 * time.Second})
 
 	server := server.New(flow, &server.ManagerOpts{
 		GitOptions: server.GitOptions{
