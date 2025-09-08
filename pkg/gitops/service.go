@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
-	"path/filepath"
+	"os"
+	"path"
 	"strings"
 
 	igit "github.com/tvandinther/gitops-manager/internal/git"
@@ -29,15 +30,13 @@ type Service struct {
 	repository          *git.Repository
 	worktree            *git.Worktree
 	environmentConfig   environmentConfig
+	target              *Target
 	cloneDepth          int
 	author              *igit.Author
 }
 
 type environmentConfig struct {
-	branches         EnvironmentBranches
-	environmentName  string
-	applicationName  string
-	updateIdentifier string
+	branches EnvironmentBranches
 }
 
 type EnvironmentBranches struct {
@@ -45,16 +44,17 @@ type EnvironmentBranches struct {
 	Next  plumbing.ReferenceName
 }
 
-func NewService(reporter *progress.Reporter, opts ServiceOptions) *Service {
-	environmentBranches := getEnvironmentBranchRefNames(opts.EnvironmentName, opts.ApplicationName, opts.UpdateIdentifier)
+func NewService(reporter *progress.Reporter, opts ServiceOptions, target *Target) *Service {
+	environmentBranches := EnvironmentBranches{
+		Trunk: plumbing.NewBranchReferenceName(target.Branch.Source),
+		Next:  plumbing.NewBranchReferenceName(target.Branch.Target),
+	}
 
 	return &Service{
 		environmentConfig: environmentConfig{
-			environmentName:  opts.EnvironmentName,
-			applicationName:  opts.ApplicationName,
-			updateIdentifier: opts.UpdateIdentifier,
-			branches:         environmentBranches,
+			branches: environmentBranches,
 		},
+		target:     target,
 		report:     reporter,
 		cloneDepth: 1,
 		author:     opts.GitAuthor,
@@ -99,12 +99,12 @@ func (s *Service) InitRepository(remoteURL *url.URL, directory string) error {
 		}
 
 		s.report.Progress("initialising environment branch")
-		environmentBranch, err := initialiseEnvironmentBranch(repo, s.environmentConfig.branches, s.author)
+		environmentBranch, err := s.initialiseEnvironmentBranch(repo)
 		if err != nil {
 			return fmt.Errorf("failed to initialise environment branch: %w", err)
 		}
 
-		err = igit.Push(repo, environmentBranch.Target())
+		err = igit.Push(repo, igit.Deref(environmentBranch))
 		if err != nil {
 			return err
 		}
@@ -137,22 +137,42 @@ func (s *Service) InitRepository(remoteURL *url.URL, directory string) error {
 	return nil
 }
 
-func initialiseEnvironmentBranch(repo *git.Repository, environmentBranches EnvironmentBranches, author *igit.Author) (*plumbing.Reference, error) {
-	ref, err := igit.CreateOrphanBranch(repo, environmentBranches.Trunk)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create orphan branch: %w", err)
-	}
+func (s *Service) initialiseEnvironmentBranch(repo *git.Repository) (*plumbing.Reference, error) {
+	var ref *plumbing.Reference
+	var err error
 
 	wt, err := repo.Worktree()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get worktree: %w", err)
 	}
-	err = wt.RemoveGlob("*")
-	if err != nil && err != git.ErrGlobNoMatches {
-		return nil, fmt.Errorf("failed to clear worktree: %w", err)
+
+	orphan := s.target.Branch.UpstreamSource == ""
+
+	if orphan {
+		s.report.Progress("creating orphan branch %s", s.environmentConfig.branches.Trunk)
+		ref, err = igit.CreateOrphanBranch(repo, s.environmentConfig.branches.Trunk)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create orphan branch: %w", err)
+		}
+
+		err = safeRemoveDir(wt, "") // Create a completely empty worktree for orphan branches
+		if err != nil && err != git.ErrGlobNoMatches {
+			return nil, fmt.Errorf("failed to clear worktree: %w", err)
+		}
+	} else {
+		s.report.Progress("creating branch %s from %s", s.environmentConfig.branches.Trunk, s.target.Branch.UpstreamSource)
+		ref, err = igit.CreateBranch(repo, s.environmentConfig.branches.Trunk, plumbing.NewBranchReferenceName(s.target.Branch.UpstreamSource))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create branch: %s: %w", s.environmentConfig.branches.Next, err)
+		}
+
+		err = safeRemoveDir(wt, s.target.Directory)
+		if err != nil && err != git.ErrGlobNoMatches {
+			return nil, fmt.Errorf("failed to clear worktree: %w", err)
+		}
 	}
 
-	err = igit.Commit(repo, wt, author, "Initialise empty environment", fmt.Sprintf("Initialising %s", environmentBranches.Trunk.Short()))
+	err = igit.Commit(repo, wt, s.author, "Initialise empty environment", fmt.Sprintf("Initialising %s", s.environmentConfig.branches.Trunk.Short()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to make initial environment commit: %w", err)
 	}
@@ -205,10 +225,9 @@ func (s *Service) PrepareEnvironment() error {
 		Branch: nextBranchRef.Name(),
 	})
 
-	pattern := filepath.Join("manifests", s.environmentConfig.applicationName, "*")
-	err = wt.RemoveGlob(pattern)
+	err = safeRemoveDir(wt, s.target.Directory)
 	if err != nil && err != git.ErrGlobNoMatches {
-		return fmt.Errorf("failed to remove files from %s: %w", pattern, err)
+		return fmt.Errorf("failed to remove files from %s: %w", s.target.Directory, err)
 	}
 
 	s.worktree = wt
@@ -218,10 +237,10 @@ func (s *Service) PrepareEnvironment() error {
 
 func (s *Service) Commit(req *Request, committer Committer) (int, error) {
 	commitOptions := &CommitOptions{
-		// WorkingDirectory: s.repositoryDirectory,
 		Repository: s.repository,
 		Worktree:   s.worktree,
 		Request:    req,
+		Target:     s.target,
 	}
 	slog.Debug("committing changes to the configuration repository", "options", commitOptions)
 	resp, err := committer.Commit(commitOptions, s.report.BasicProgress)
@@ -238,6 +257,34 @@ func (s *Service) Push(configRepository Repository) error {
 	err := igit.Push(s.repository, environmentBranches.Next)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func safeRemoveDir(wt *git.Worktree, dir string) error {
+	entries, err := os.ReadDir(path.Join(wt.Filesystem.Root(), dir))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return fmt.Errorf("error reading directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.Name() == ".git" {
+			continue
+		}
+
+		p := path.Join(dir, entry.Name())
+
+		slog.Debug("removing item from worktree", "item", p, "isDir", entry.IsDir())
+
+		_, err := wt.Remove(p)
+		if err != nil {
+			return fmt.Errorf("error removing item from worktree: %w", err)
+		}
 	}
 
 	return nil

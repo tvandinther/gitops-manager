@@ -144,3 +144,11 @@ func CreateOrphanBranch(repo *git.Repository, branchRefName plumbing.ReferenceNa
 
 	return symRef, nil
 }
+
+func Deref(ref *plumbing.Reference) plumbing.ReferenceName {
+	if ref.Type() == plumbing.SymbolicReference {
+		return ref.Target()
+	}
+
+	return ref.Name()
+}

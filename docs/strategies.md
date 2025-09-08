@@ -4,6 +4,8 @@ GitOps manager supports the usage of different strategies to manage the flow of 
 
 - [Authorisors](#authorisors)
     - [Static Authorisor](#static-authorisor)
+- [Targeters](#targeters)
+    - [Branch Targeter](#branch-targeter)
 - [URL Authenticators](#url-authenticators)
     - [None](#none)
     - [User Password](#user-password)
@@ -28,6 +30,23 @@ authorisor := &authorisor.Static{
 
 // There is also a shorthand to the above:
 authorisor = authorisor.NoAuthorisation
+```
+
+## Targeters
+
+### Branch Targeter
+The branch targeter strategy uses branches to define environments. Each environment branch may be prefixed and follows the format `<prefix><environment>`. For example, with a prefix of `environment/`, the `staging` environment would correspond to the `environment/staging` branch. The target branch follows the format `<prefix><environment>/<application-name>/<update-id>`, for example `environment/staging/my-app/issue-01`.
+
+There is also the option to configure a directory name under which changes will be scoped to. This is useful to ensure that changes are contained within a specific directory in the target repository, for example `manifests`.
+
+If an environment branch does not exist, the `Orphan` option can be set to create an orphan branch. This is the recommended approach for using branches as environments. If this is set to `false`, a value for `Upstream` must be provided to base the new environment branch on.
+```go
+targeter := &targeters.Branch{
+    Prefix: "environment/", 
+    DirectoryName: "manifests", 
+    Orphan: true
+    // Upstream: "main", // Required if Orphan is false
+}
 ```
 
 ## URL Authenticators

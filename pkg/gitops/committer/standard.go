@@ -11,14 +11,13 @@ import (
 )
 
 type Standard struct {
-	Author           *igit.Author
-	CommitSubject    string
-	WorkingDirectory string
-	CommitMessageFn  func(req *gitops.Request) string
+	Author          *igit.Author
+	CommitSubject   string
+	CommitMessageFn func(req *gitops.Request) string
 }
 
 func (c *Standard) Commit(opts *gitops.CommitOptions, sendMsg func(string)) (*gitops.CommitResponse, error) {
-	pattern := filepath.Join(c.WorkingDirectory, "*")
+	pattern := filepath.Join(opts.Target.Directory, "*")
 	slog.Debug("adding files to worktree", "pattern", pattern)
 	sendMsg("adding updated manifests to the current git worktree")
 	err := opts.Worktree.AddGlob(pattern)

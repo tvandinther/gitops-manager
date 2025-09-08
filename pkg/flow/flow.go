@@ -10,12 +10,11 @@ type Flow struct {
 type Strategies struct {
 	RequestAuthorisation gitops.Authorisor
 	CloneAuthentication  gitops.URLAuthenticator
-	Branch               any // TODO
+	Target               gitops.Targeter
 	FileCopy             gitops.FileCopier
 	Commit               gitops.Committer
-	// PushAuthentication   gitops.URLAuthenticator
-	CreateReview   gitops.Reviewer
-	CompleteReview gitops.Reviewer
+	CreateReview         gitops.Reviewer
+	CompleteReview       gitops.Reviewer
 }
 
 type Processors struct {

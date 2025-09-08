@@ -15,6 +15,7 @@ import (
 	"github.com/tvandinther/gitops-manager/pkg/gitops/copier"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/mutators"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/reviewer"
+	"github.com/tvandinther/gitops-manager/pkg/gitops/targeters"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/validators"
 	"github.com/tvandinther/gitops-manager/pkg/server"
 )
@@ -46,10 +47,9 @@ func main() {
 	flow := flow.New(&flow.Strategies{
 		RequestAuthorisation: authorisor.NoAuthorisation,
 		CloneAuthentication:  authenticator,
-		Branch:               nil,
+		Target:               &targeters.Branch{Prefix: "environment/", DirectoryName: "manifests", Orphan: true},
 		FileCopy: &copier.Subpath{
-			ManifestDirectoryName: "manifests",
-			Path:                  ".",
+			Path: ".",
 		},
 		Commit: &committer.Standard{
 			Author:        gitAuthor,
