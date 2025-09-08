@@ -38,6 +38,9 @@ Strategies define how each step in the flow is executed.
 #### Authorisor
 The authorisor is responsible for authenticating and authorizing incoming requests to the GitOps bot. This could involve checking API keys, OAuth tokens, or other forms of authentication to ensure that only authorized users can trigger the GitOps operations and that they are being performed with valid payloads, e.g. targetting an allowed repository.
 
+#### Targeter
+The targeter is responsible for determining the target configuration repository, branch, and directory where the manifests will be committed. Customising this strategy allows you to define how environments are managed by matching a GitOps target to an incoming request.
+
 #### URL Authenticator
 The URL authenticator is a strategy that enriches a clone URL with authentication information so that private repositories can be accessed.
 
