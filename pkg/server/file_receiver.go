@@ -100,7 +100,3 @@ func (r *FileReceiver) done() error {
 	r.progress.Success("Received all files")
 	return nil
 }
-
-func (r *FileReceiver) getFilesReceived() int {
-	return r.filesReceived
-}
