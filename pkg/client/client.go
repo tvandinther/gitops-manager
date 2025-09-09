@@ -114,6 +114,16 @@ func (c *Client) Run() {
 		log.Fatalf("failed to create protobuf struct from source attributes: %v", err)
 	}
 
+	absDirPath, err := filepath.Abs(c.requestOptions.ManifestDirectory)
+	if err != nil {
+		log.Fatalf("error parsing manifests directory: %s", c.requestOptions.ManifestDirectory)
+	}
+
+	totalFiles, err := countFiles(absDirPath)
+	if err != nil {
+		log.Fatalf("error while counting files in manifest directory")
+	}
+
 	req := &pb.ManifestRequest{
 		Content: &pb.ManifestRequest_Metadata{
 			Metadata: &pb.UpdateManifestMetadata{
@@ -135,6 +145,7 @@ func (c *Client) Run() {
 						Attributes: protoStruct.Fields,
 					},
 				},
+				TotalFiles: int32(totalFiles),
 			},
 		},
 	}
@@ -173,10 +184,6 @@ func (c *Client) Run() {
 		log.Fatalf("error sending manifest request metadata: %v", err)
 	}
 
-	absDirPath, err := filepath.Abs(c.requestOptions.ManifestDirectory)
-	if err != nil {
-		log.Fatalf("error parsing manifests directory: %s", c.requestOptions.ManifestDirectory)
-	}
 	err = uploadDir(stream, absDirPath)
 	if err != nil {
 		log.Fatalf("error uploading manifests: %v", err)
@@ -265,6 +272,28 @@ func receiveMessages(stream grpc.BidiStreamingClient[pb.ManifestRequest, pb.Mani
 			summary.FromProto(m.Summary)
 		}
 	}
+}
+
+func countFiles(directory string) (int, error) {
+	count := 0
+
+	err := filepath.WalkDir(directory, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			count++
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return count, fmt.Errorf("error walking directory: %w", err)
+	}
+
+	return count, nil
 }
 
 func uploadDir(stream grpc.BidiStreamingClient[pb.ManifestRequest, pb.ManifestResponse], directory string) error {
