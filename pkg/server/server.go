@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	pb "github.com/tvandinther/gitops-manager/gen/go"
 	"github.com/tvandinther/gitops-manager/internal/health"
@@ -67,7 +67,8 @@ func (s *Server) Run() error {
 
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		slog.Error("failed to listen on port", "address", listenAddr, "error", err)
+		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
 	pb.RegisterGitOpsServer(grpcServer, s)
@@ -106,7 +107,7 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 	if err != nil {
 		return fmt.Errorf("failed creating a new temporary filesystem: %w", err)
 	}
-	// defer tempfs.Clear()
+	defer tempfs.Clear()
 
 	repoDir, err := tempfs.Mkdir("repository")
 	if err != nil {
@@ -131,6 +132,8 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 			},
 			TotalFiles: receivedFileCountPtr,
 		}
+		uploadProcessProgress *progress.ProcessReporter
+		initErr               error
 	)
 
 	reporter.Heading("Receiving data")
@@ -145,6 +148,7 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 		msg, err := stream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				uploadProcessProgress.Done()
 				reporter.Success("Data received")
 				goto respond
 			}
@@ -159,9 +163,23 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 			metadataRecieved = true
 			slog.Debug("received request metadata", "metadata", m.Metadata)
 			assignRequestMetadataToRequest(m.Metadata, opts)
+			uploadProcessProgress = reporter.NewProcess(&progress.ProcessReporterOptions{
+				ReportPeriod:   2 * time.Second,
+				TotalFileCount: *opts.TotalFiles,
+				Template: progress.ProcessTemplate{
+					PresentAction: "receiving",
+					PastAction:    "received",
+					Subject:       "files",
+				},
+			})
 			slog.Debug("assigned request metadata to options", "options", opts)
 
 		case *pb.ManifestRequest_File:
+			if !metadataRecieved {
+				initErr = fmt.Errorf("received file before metadata")
+				goto respond
+			}
+			uploadProcessProgress.Start(ctx)
 			chunk := m.File
 			slog.Debug("received file chunk", "filename", chunk.Filename, "isLast", chunk.IsLastChunk)
 			buffer, exists := fileBuffers[chunk.Filename]
@@ -180,7 +198,7 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 				slog.Debug("writing file", "filename", chunk.Filename, "absoluteFilename", absoluteFilename)
 
 				receivedFileCount++
-				reporter.Progress("received file %s", chunk.Filename)
+				uploadProcessProgress.Increment(1)
 
 				err = os.WriteFile(absoluteFilename, buffer.Bytes(), os.ModePerm)
 				if err != nil {
@@ -193,8 +211,16 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 
 respond:
 	if err := ctx.Err(); err != nil {
-		log.Printf("Context error before processing: %v", err)
+		slog.Warn("Context error before processing", "error", err)
 		return err
+	}
+
+	if initErr != nil {
+		return initErr
+	}
+
+	if receivedFileCount != *opts.TotalFiles {
+		return fmt.Errorf("received only %d/%d files", receivedFileCount, *opts.TotalFiles)
 	}
 
 	response, err := gitopsManager.ProcessRequest(ctx, opts)
@@ -263,6 +289,8 @@ func assignRequestMetadataToRequest(metadata *pb.UpdateManifestMetadata, req *gi
 			Actor:     metadata.Source.Metadata.Actor,
 		},
 	}
+	totalFiles := int(metadata.TotalFiles)
+	req.TotalFiles = &totalFiles
 
 	req.Metadata = make(map[string]any)
 	for k, v := range metadata.GetMetadata() {

@@ -23,6 +23,7 @@ message UpdateManifestMetadata {
     bool auto_review = 7;
     RequestSource source = 8;
     map<string, google.protobuf.Value> metadata = 9;
+    int32 total_files = 10;
 }
 
 message RequestSource {

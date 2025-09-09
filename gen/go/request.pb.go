@@ -93,6 +93,7 @@ type UpdateManifestMetadata struct {
 	AutoReview       bool                       `protobuf:"varint,7,opt,name=auto_review,json=autoReview,proto3" json:"auto_review,omitempty"`
 	Source           *RequestSource             `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
 	Metadata         map[string]*structpb.Value `protobuf:"bytes,9,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	TotalFiles       int32                      `protobuf:"varint,10,opt,name=total_files,json=totalFiles,proto3" json:"total_files,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -188,6 +189,13 @@ func (x *UpdateManifestMetadata) GetMetadata() map[string]*structpb.Value {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *UpdateManifestMetadata) GetTotalFiles() int32 {
+	if x != nil {
+		return x.TotalFiles
+	}
+	return 0
 }
 
 type RequestSource struct {
@@ -310,7 +318,7 @@ const file_request_proto_rawDesc = "" +
 	"\tFileChunk\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\"\n" +
 	"\ris_last_chunk\x18\x02 \x01(\bR\visLastChunk\x12\x18\n" +
-	"\acontent\x18\x03 \x01(\fR\acontent\"\xea\x03\n" +
+	"\acontent\x18\x03 \x01(\fR\acontent\"\x8b\x04\n" +
 	"\x16UpdateManifestMetadata\x12?\n" +
 	"\x11config_repository\x18\x01 \x01(\v2\x12.gitops.RepositoryR\x10configRepository\x12 \n" +
 	"\venvironment\x18\x02 \x01(\tR\venvironment\x12+\n" +
@@ -322,7 +330,10 @@ const file_request_proto_rawDesc = "" +
 	"\vauto_review\x18\a \x01(\bR\n" +
 	"autoReview\x12-\n" +
 	"\x06source\x18\b \x01(\v2\x15.gitops.RequestSourceR\x06source\x12H\n" +
-	"\bmetadata\x18\t \x03(\v2,.gitops.UpdateManifestMetadata.MetadataEntryR\bmetadata\x1aS\n" +
+	"\bmetadata\x18\t \x03(\v2,.gitops.UpdateManifestMetadata.MetadataEntryR\bmetadata\x12\x1f\n" +
+	"\vtotal_files\x18\n" +
+	" \x01(\x05R\n" +
+	"totalFiles\x1aS\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"w\n" +

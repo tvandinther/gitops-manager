@@ -9,7 +9,6 @@ import (
 )
 
 type Subpath struct {
-	// Relative to ManifestDirectoryName
 	Path string
 }
 
