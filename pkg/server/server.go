@@ -106,7 +106,7 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 	if err != nil {
 		return fmt.Errorf("failed creating a new temporary filesystem: %w", err)
 	}
-	// defer tempfs.Clear()
+	defer tempfs.Clear()
 
 	repoDir, err := tempfs.Mkdir("repository")
 	if err != nil {
