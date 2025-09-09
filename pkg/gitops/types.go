@@ -13,7 +13,7 @@ type Request struct {
 	DryRun           bool
 	AutoReview       bool
 	Source           *RequestSource
-	TotalFiles       *int
+	TotalFiles       int
 	Metadata         map[string]any
 }
 

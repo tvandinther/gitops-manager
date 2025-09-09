@@ -22,9 +22,10 @@ import (
 )
 
 type Manager struct {
-	flow    *flow.Flow
-	report  *progress.Reporter
-	options *ManagerOpts
+	flow     *flow.Flow
+	report   *progress.Reporter
+	options  *ManagerOpts
+	response *gitops.Response
 }
 
 type ManagerOpts struct {
@@ -42,6 +43,39 @@ func newManager(reporter *progress.Reporter, flow *flow.Flow, opts *ManagerOpts)
 		report:  reporter,
 		options: opts,
 	}
+}
+
+func (m *Manager) MetadataCheck(ctx context.Context, req *gitops.Request) (bool, *gitops.Response, error) {
+	response := &gitops.Response{
+		Environment: &gitops.EnvironmentResponse{
+			Repository: &req.TargetRepository,
+			Name:       req.Environment,
+		},
+		ReviewResult: &gitops.CreateReviewResult{},
+		DryRun:       req.DryRun,
+	}
+
+	respondWithError := func(err error) (bool, *gitops.Response, error) {
+		slog.Info("responding with error", "error", err)
+
+		response.Error = err.Error()
+
+		return false, response, err
+	}
+
+	m.report.Heading("Verifying request authorisation")
+	isAllowed, err := m.flow.Strategies.RequestAuthorisation.Authorise(nil, m.report.BasicProgress)
+	if err != nil {
+		m.report.Failure("Authorisation failed")
+		return respondWithError(fmt.Errorf("failed to perform authorisation: %w", err))
+	}
+	if !isAllowed {
+		m.report.Failure("Request denied")
+		return respondWithError(fmt.Errorf("not authorised"))
+	}
+	m.report.Success("Request authorised")
+
+	return true, response, nil
 }
 
 func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*gitops.Response, error) {
@@ -63,18 +97,6 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 		return response, err
 	}
-
-	m.report.Heading("Verifying request authorisation")
-	isAllowed, err := strategies.RequestAuthorisation.Authorise(nil, m.report.BasicProgress)
-	if err != nil {
-		m.report.Failure("Authorisation failed")
-		return respondWithError(fmt.Errorf("failed to perform authorisation: %w", err))
-	}
-	if !isAllowed {
-		m.report.Failure("Request denied")
-		return respondWithError(fmt.Errorf("not authorised"))
-	}
-	m.report.Success("Request authorised")
 
 	target, err := strategies.Target.CreateTarget(req)
 	if err != nil {
@@ -118,7 +140,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 	mutationProcessReport := m.report.NewProcess(&progress.ProcessReporterOptions{
 		ReportPeriod:   10 * time.Second,
-		TotalFileCount: *req.TotalFiles,
+		TotalFileCount: req.TotalFiles,
 		Template: progress.ProcessTemplate{
 			PresentAction: "mutating",
 			PastAction:    "mutated",
@@ -209,7 +231,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 	validationProcessReport := m.report.NewProcess(&progress.ProcessReporterOptions{
 		ReportPeriod:   10 * time.Second,
-		TotalFileCount: *req.TotalFiles,
+		TotalFileCount: req.TotalFiles,
 		Template: progress.ProcessTemplate{
 			PresentAction: "validating",
 			PastAction:    "validated",
