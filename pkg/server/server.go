@@ -1,16 +1,13 @@
 package server
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
-	"time"
 
 	pb "github.com/tvandinther/gitops-manager/gen/go"
 	"github.com/tvandinther/gitops-manager/internal/health"
@@ -120,23 +117,21 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 	}
 
 	var (
-		fileBuffers               = make(map[string]*bytes.Buffer)
-		metadataRecieved          = false
-		receivedFileCount    int  = 0
-		receivedFileCountPtr *int = &receivedFileCount
-		opts                      = &gitops.Request{
+		metadataRecieved = false
+		opts             = &gitops.Request{
 			Paths: gitops.Paths{
 				TempDir:             tempfs.Root,
 				RepositoryDir:       repoDir,
 				UpdatedManifestsDir: updatedManifestsPath,
 			},
-			TotalFiles: receivedFileCountPtr,
 		}
-		uploadProcessProgress *progress.ProcessReporter
-		initErr               error
+		preflightErr      error
+		preflightComplete = false
+		response          *gitops.Response
+		fileReceiver      *FileReceiver
 	)
 
-	reporter.Heading("Receiving data")
+	reporter.Heading("Receiving Request")
 	for {
 		select {
 		case <-ctx.Done():
@@ -148,8 +143,6 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 		msg, err := stream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				uploadProcessProgress.Done()
-				reporter.Success("Data received")
 				goto respond
 			}
 			return fmt.Errorf("failed to receive message: %w", err)
@@ -163,49 +156,22 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 			metadataRecieved = true
 			slog.Debug("received request metadata", "metadata", m.Metadata)
 			assignRequestMetadataToRequest(m.Metadata, opts)
-			uploadProcessProgress = reporter.NewProcess(&progress.ProcessReporterOptions{
-				ReportPeriod:   2 * time.Second,
-				TotalFileCount: *opts.TotalFiles,
-				Template: progress.ProcessTemplate{
-					PresentAction: "receiving",
-					PastAction:    "received",
-					Subject:       "files",
-				},
-			})
 			slog.Debug("assigned request metadata to options", "options", opts)
-
-		case *pb.ManifestRequest_File:
-			if !metadataRecieved {
-				initErr = fmt.Errorf("received file before metadata")
+			reporter.Success("Request received")
+			preflightComplete, response, preflightErr = gitopsManager.MetadataCheck(ctx, opts)
+			if preflightErr != nil {
 				goto respond
 			}
-			uploadProcessProgress.Start(ctx)
+
+			fileReceiver = newFileReceiver(updatedManifestsPath, opts.TotalFiles, reporter)
+
+		case *pb.ManifestRequest_File:
+			if !preflightComplete {
+				preflightErr = fmt.Errorf("received file before metadata")
+				goto respond
+			}
 			chunk := m.File
-			slog.Debug("received file chunk", "filename", chunk.Filename, "isLast", chunk.IsLastChunk)
-			buffer, exists := fileBuffers[chunk.Filename]
-			if !exists {
-				buffer = &bytes.Buffer{}
-				fileBuffers[chunk.Filename] = buffer
-			}
-			buffer.Write(chunk.Content)
-			if chunk.IsLastChunk {
-				slog.Debug("Received full file", "name", chunk.Filename, "size", fileBuffers[chunk.Filename].Len())
-				absoluteFilename := filepath.Join(opts.Paths.UpdatedManifestsDir, chunk.Filename)
-				err = os.MkdirAll(filepath.Dir(absoluteFilename), os.ModePerm)
-				if err != nil {
-					return fmt.Errorf("failed to make parent directory: %w", err)
-				}
-				slog.Debug("writing file", "filename", chunk.Filename, "absoluteFilename", absoluteFilename)
-
-				receivedFileCount++
-				uploadProcessProgress.Increment(1)
-
-				err = os.WriteFile(absoluteFilename, buffer.Bytes(), os.ModePerm)
-				if err != nil {
-					return fmt.Errorf("failed to write file: %w", err)
-				}
-				delete(fileBuffers, chunk.Filename)
-			}
+			fileReceiver.receiveFileChunk(ctx, chunk)
 		}
 	}
 
@@ -215,15 +181,16 @@ respond:
 		return err
 	}
 
-	if initErr != nil {
-		return initErr
+	if preflightErr != nil {
+		return preflightErr
 	}
 
-	if receivedFileCount != *opts.TotalFiles {
-		return fmt.Errorf("received only %d/%d files", receivedFileCount, *opts.TotalFiles)
+	err = fileReceiver.done()
+	if err != nil {
+		return err
 	}
 
-	response, err := gitopsManager.ProcessRequest(ctx, opts)
+	response, err = gitopsManager.ProcessRequest(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to process manifests request: %w", err)
 	}
@@ -290,7 +257,7 @@ func assignRequestMetadataToRequest(metadata *pb.UpdateManifestMetadata, req *gi
 		},
 	}
 	totalFiles := int(metadata.TotalFiles)
-	req.TotalFiles = &totalFiles
+	req.TotalFiles = totalFiles
 
 	req.Metadata = make(map[string]any)
 	for k, v := range metadata.GetMetadata() {

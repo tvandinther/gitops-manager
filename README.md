@@ -10,7 +10,8 @@ config:
 ---
 flowchart LR
   REQ[Request] --> AUTHZ(Authorise)
-  AUTHZ --> INIT(Initialise Configuration Repository)
+  AUTHZ --> UPLOAD(Upload Manifests)
+  UPLOAD --> INIT(Initialise Configuration Repository)
   INIT --> MUT(Mutate Manifests)
   MUT --> VAL(Validate Manifests)
   VAL --> COM(Commit Updated Manifests)
