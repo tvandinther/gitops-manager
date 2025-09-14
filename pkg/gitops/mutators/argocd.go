@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/tvandinther/gitops-manager/pkg/gitops"
 	yamlUtil "github.com/tvandinther/gitops-manager/pkg/util"
 	"gopkg.in/yaml.v3"
 )
@@ -16,7 +17,7 @@ func (h *HelmHooksToArgoCD) GetTitle() string {
 	return "Helm Hooks to Argo CD sync hooks"
 }
 
-func (h *HelmHooksToArgoCD) MutateFile(ctx context.Context, inputFile io.Reader, outputFile io.Writer, sendMsg func(string)) error {
+func (h *HelmHooksToArgoCD) MutateFile(ctx context.Context, _ *gitops.Request, inputFile io.Reader, outputFile io.Writer, sendMsg func(string)) error {
 	var root yaml.Node
 	err := yaml.NewDecoder(inputFile).Decode(&root)
 	// If empty file, do nothing
