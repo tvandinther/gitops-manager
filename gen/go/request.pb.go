@@ -88,7 +88,6 @@ type UpdateManifestMetadata struct {
 	Environment      string                     `protobuf:"bytes,2,opt,name=environment,proto3" json:"environment,omitempty"`
 	UpdateIdentifier string                     `protobuf:"bytes,3,opt,name=update_identifier,json=updateIdentifier,proto3" json:"update_identifier,omitempty"`
 	AppName          string                     `protobuf:"bytes,4,opt,name=app_name,json=appName,proto3" json:"app_name,omitempty"`
-	AuthToken        string                     `protobuf:"bytes,5,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
 	DryRun           bool                       `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
 	AutoReview       bool                       `protobuf:"varint,7,opt,name=auto_review,json=autoReview,proto3" json:"auto_review,omitempty"`
 	Source           *RequestSource             `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
@@ -152,13 +151,6 @@ func (x *UpdateManifestMetadata) GetUpdateIdentifier() string {
 func (x *UpdateManifestMetadata) GetAppName() string {
 	if x != nil {
 		return x.AppName
-	}
-	return ""
-}
-
-func (x *UpdateManifestMetadata) GetAuthToken() string {
-	if x != nil {
-		return x.AuthToken
 	}
 	return ""
 }
@@ -318,14 +310,12 @@ const file_request_proto_rawDesc = "" +
 	"\tFileChunk\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\"\n" +
 	"\ris_last_chunk\x18\x02 \x01(\bR\visLastChunk\x12\x18\n" +
-	"\acontent\x18\x03 \x01(\fR\acontent\"\x8b\x04\n" +
+	"\acontent\x18\x03 \x01(\fR\acontent\"\xec\x03\n" +
 	"\x16UpdateManifestMetadata\x12?\n" +
 	"\x11config_repository\x18\x01 \x01(\v2\x12.gitops.RepositoryR\x10configRepository\x12 \n" +
 	"\venvironment\x18\x02 \x01(\tR\venvironment\x12+\n" +
 	"\x11update_identifier\x18\x03 \x01(\tR\x10updateIdentifier\x12\x19\n" +
-	"\bapp_name\x18\x04 \x01(\tR\aappName\x12\x1d\n" +
-	"\n" +
-	"auth_token\x18\x05 \x01(\tR\tauthToken\x12\x17\n" +
+	"\bapp_name\x18\x04 \x01(\tR\aappName\x12\x17\n" +
 	"\adry_run\x18\x06 \x01(\bR\x06dryRun\x12\x1f\n" +
 	"\vauto_review\x18\a \x01(\bR\n" +
 	"autoReview\x12-\n" +

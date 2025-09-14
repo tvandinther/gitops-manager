@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	pb "github.com/tvandinther/gitops-manager/gen/go"
+	"github.com/tvandinther/gitops-manager/pkg/client/request"
 )
 
 type JobSummary struct {
@@ -60,50 +61,33 @@ func (s *JobSummary) FromProto(p *pb.Summary) {
 	}
 }
 
+func PrettyPrintManifestRequest(req *request.Request) {
+	fmt.Println("Manifest Update Request:")
+
+	printKV(1, "Environment", req.Environment)
+	printKV(1, "App Name", req.AppName)
+	printKV(1, "Update Branch", req.UpdateIdentifier)
+	printKV(1, "Dry Run", fmt.Sprintf("%v", req.DryRun))
+	printKV(1, "Auto Review", fmt.Sprintf("%v", req.AutoReview))
+	printKV(1, "Config Repository", req.Repository.URL)
+
+	fmt.Println("  Source:")
+	printKV(2, "Repository", req.Source.Repository.URL)
+	printKV(2, "Commit SHA", req.Source.Metadata.CommitSHA)
+	printKV(2, "Actor", req.Source.Metadata.Actor)
+	jsonAttributes, err := json.Marshal(req.Source.Metadata.Attributes)
+	if err != nil {
+		printKV(2, "Attributes", err.Error())
+	} else {
+		printKV(2, "Attributes", string(jsonAttributes))
+	}
+
+	fmt.Println()
+}
+
 func printKV(indent int, label, value string) {
 	padding := strings.Repeat("  ", indent)
 	fmt.Printf("%s%-18s : %s\n", padding, label, value)
-}
-
-func PrettyPrintManifestRequest(req *pb.ManifestRequest) {
-	if req == nil || req.Content == nil {
-		fmt.Println("ManifestRequest: <nil>")
-		return
-	}
-
-	meta := req.GetMetadata()
-	if meta == nil {
-		fmt.Println("Manifest Metadata: <nil>")
-		return
-	}
-
-	fmt.Println("Manifest Update Request:")
-
-	printKV(1, "Environment", meta.Environment)
-	printKV(1, "App Name", meta.AppName)
-	printKV(1, "Update Branch", meta.UpdateIdentifier)
-	printKV(1, "Dry Run", fmt.Sprintf("%v", meta.DryRun))
-	printKV(1, "Auto Review", fmt.Sprintf("%v", meta.AutoReview))
-	printKV(1, "Config Repository", meta.ConfigRepository.Url)
-
-	sourceMetadataAttributes := make(map[string]any)
-	for k, v := range meta.Source.Metadata.GetAttributes() {
-		sourceMetadataAttributes[k] = v.AsInterface()
-	}
-
-	jsonAttributes, err := json.Marshal(sourceMetadataAttributes)
-	if err != nil {
-		// TODO
-	}
-
-	if meta.Source != nil {
-		fmt.Println("  Source:")
-		printKV(2, "Repository", meta.Source.Repository.Url)
-		printKV(2, "Commit SHA", meta.Source.Metadata.CommitSha)
-		printKV(2, "Actor", meta.Source.Metadata.Actor)
-		printKV(2, "Attributes", string(jsonAttributes))
-	}
-	fmt.Println()
 }
 
 func PrettyPrintJSONBlock(title string, jsonBytes []byte) error {
