@@ -35,7 +35,9 @@ func (h *HelmHooksToArgoCD) MutateFile(ctx context.Context, _ *gitops.Request, i
 		convertHelmHooks(annotations)
 	}
 
-	err = yaml.NewEncoder(outputFile).Encode(&root)
+	encoder := yaml.NewEncoder(outputFile)
+	encoder.SetIndent(2)
+	err = encoder.Encode(&root)
 	if err != nil {
 		return fmt.Errorf("failed to encode YAML: %w", err)
 	}
