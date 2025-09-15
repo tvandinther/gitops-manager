@@ -29,8 +29,14 @@ func (h *HelmHooksToArgoCD) MutateFile(ctx context.Context, _ *gitops.Request, i
 	}
 
 	for _, doc := range root.Content {
-		metadata := yamlUtil.GetOrCreateMap(doc, "metadata")
-		annotations := yamlUtil.GetOrCreateMap(metadata, "annotations")
+		metadata := yamlUtil.Get(doc, "metadata")
+		if metadata == nil {
+			return nil
+		}
+		annotations := yamlUtil.Get(metadata, "annotations")
+		if annotations == nil {
+			return nil
+		}
 
 		convertHelmHooks(annotations)
 	}

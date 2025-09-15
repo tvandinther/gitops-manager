@@ -40,7 +40,7 @@ func SetMappingValue(mapping *yaml.Node, key string, value string) {
 	})
 }
 
-func GetOrCreateMap(parent *yaml.Node, key string) *yaml.Node {
+func Get(parent *yaml.Node, key string) *yaml.Node {
 	for i := 0; i < len(parent.Content); i += 2 {
 		k := parent.Content[i]
 		v := parent.Content[i+1]
@@ -51,6 +51,15 @@ func GetOrCreateMap(parent *yaml.Node, key string) *yaml.Node {
 			}
 			return v
 		}
+	}
+
+	return nil
+}
+
+func GetOrCreateMap(parent *yaml.Node, key string) *yaml.Node {
+	node := Get(parent, key)
+	if node != nil {
+		return node
 	}
 	// Key not found, create new
 	newMap := &yaml.Node{
