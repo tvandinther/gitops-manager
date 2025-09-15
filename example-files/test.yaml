@@ -7,9 +7,10 @@ metadata:
     app: "test"
   annotations:
     helm.sh/hook: post-install
+    mustache: "{{ hello }}"
 spec:
   source:
     directory:
       recurse: true
     # helm:
-    #   chart: "foo"
+    #   chart: "test-chart"

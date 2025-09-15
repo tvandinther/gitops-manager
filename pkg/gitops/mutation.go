@@ -7,5 +7,5 @@ import (
 
 type Mutator interface {
 	GetTitle() string
-	MutateFile(ctx context.Context, inputFile io.Reader, outputFile io.Writer, sendMsg func(string)) error
+	MutateFile(ctx context.Context, request *Request, inputFile io.Reader, outputFile io.Writer, sendMsg func(string)) error
 }

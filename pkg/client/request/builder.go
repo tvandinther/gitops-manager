@@ -63,7 +63,7 @@ func WithAppName(name string) func(*Request) {
 
 func WithDryRun(dryRun bool) func(*Request) {
 	return func(r *Request) {
-		r.DryRun = true
+		r.DryRun = dryRun
 	}
 }
 

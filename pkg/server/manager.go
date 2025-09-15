@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -151,27 +152,37 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 	if len(m.flow.Processors.Mutators) > 0 {
 		errs := make([]error, 0)
 
-		nextFns := make([]func(*os.File), len(m.flow.Processors.Mutators)+1)
-		nextFns[len(nextFns)-1] = func(file *os.File) {}
+		nextFns := make([]func(io.Reader), len(m.flow.Processors.Mutators)+1)
 
 		for i, mutator := range m.flow.Processors.Mutators {
-			nextFns[i] = func(file *os.File) {
+			nextFns[i] = func(input io.Reader) {
 				slog.Debug("running mutator", "mutator", mutator.GetTitle())
 
-				inputFile := file
-				outputFile := io.NewOffsetWriter(file, 0)
+				output := &bytes.Buffer{}
+
+				readBytes := &bytes.Buffer{}
+				teedInput := io.TeeReader(input, readBytes)
 
 				mutateErr := mutator.MutateFile(
 					ctx,
-					inputFile,
-					outputFile,
+					req,
+					teedInput,
+					output,
 					m.report.BasicProgress,
 				)
 				if mutateErr != nil {
 					errs = append(errs, mutateErr)
 				}
 
-				nextFns[i+1](file)
+				var outputReader io.Reader
+
+				if output.Len() == 0 {
+					outputReader = io.MultiReader(readBytes, input)
+				} else {
+					outputReader = bytes.NewReader(output.Bytes())
+				}
+
+				nextFns[i+1](outputReader)
 			}
 		}
 
@@ -189,15 +200,33 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 			}
 
 			if !d.IsDir() {
-				m.report.Progress("mutating file: %s", path)
-
 				file, err := os.OpenFile(path, os.O_RDWR, 0644)
 				if err != nil {
 					return fmt.Errorf("failed to open file: %w", err)
 				}
 				defer file.Close()
 
+				var writeErr error
+
+				nextFns[len(nextFns)-1] = func(buf io.Reader) {
+					var written int64
+					writeErr = file.Truncate(0)
+					if writeErr != nil {
+						return
+					}
+					_, writeErr = file.Seek(0, io.SeekStart)
+					if writeErr != nil {
+						return
+					}
+
+					written, writeErr = io.Copy(file, buf)
+					slog.Debug("written mutated file", "bytes", written, "file", file.Name())
+				}
+
 				nextFns[0](file)
+				if writeErr != nil {
+					return fmt.Errorf("failed to write to file: %w", writeErr)
+				}
 				mutationProcessReport.Increment(1)
 			}
 
@@ -275,7 +304,11 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 					if result.IsValid {
 						successfulValidationResults = append(successfulValidationResults, result)
 					} else {
-						failedValidationResults[path] = append(failedValidationResults[path], result)
+						relativePath, err := filepath.Rel(req.Paths.UpdatedManifestsDir, path)
+						if err != nil {
+							return fmt.Errorf("failed to form relative path: %w", err)
+						}
+						failedValidationResults[relativePath] = append(failedValidationResults[relativePath], result)
 					}
 					if err != nil {
 						errs = append(errs, fmt.Errorf("failed to validate %s: %w", path, err))
@@ -293,7 +326,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 			slog.Error("errors occured during validation", "count", len(errs))
 			m.report.Failure("%d error(s) occured during validation", len(errs))
 
-			respondWithError(errors.New(strings.Join(util.Map(errs, func(e error) string { return e.Error() }), "\n")))
+			return respondWithError(errors.New(strings.Join(util.Map(errs, func(e error) string { return e.Error() }), "\n")))
 		}
 
 		if len(failedValidationResults) > 0 {
@@ -305,7 +338,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 					errorStrings = append(errorStrings, fmt.Sprintf("%s: %s", path, strings.Join(util.Map(result.Errors, func(e error) string { return e.Error() }), "\n")))
 				}
 			}
-			respondWithError(fmt.Errorf("invalid manifests: \n%s", strings.Join(errorStrings, "\n\n")))
+			return respondWithError(fmt.Errorf("invalid manifests: \n%s", strings.Join(errorStrings, "\n\n")))
 		}
 	} else {
 		m.report.Progress("no validations to be run")

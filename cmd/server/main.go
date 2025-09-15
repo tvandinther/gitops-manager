@@ -63,7 +63,18 @@ func main() {
 		CompleteReview: reviewer,
 	})
 
-	flow.WithMutators(&mutators.HelmHooksToArgoCD{})
+	flow.WithMutators(
+		&mutators.HelmHooksToArgoCD{},
+		&mutators.Mustache{
+			GetData: func(request *gitops.Request) (any, error) {
+				data := map[string]any{
+					"hello": "from mustache",
+				}
+
+				return data, nil
+			},
+		},
+	)
 	flow.WithValidators(&validators.EmptyFile{}, &validators.Delay{Duration: 1 * time.Second})
 
 	server := server.New(flow, &server.ManagerOpts{

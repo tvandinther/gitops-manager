@@ -2,8 +2,10 @@
 
 - [Mutators](#mutators)
     - [Helm Hook To Argo CD Sync Hook](#helm-hook-to-argo-cd-sync-hook)
+    - [Custom Mutators](#custom-mutators)
 - [Validators](#validators)
     - [Empty Files](#empty-files)
+    - [Custom Validators](#custom-validators)
 
 ## Mutators
 *You can implement your own by creating a type that satisfies the `gitops.Mutator` interface.*
@@ -15,6 +17,9 @@ This mutator converts Helm hooks to Argo CD sync hooks. It looks for the annotat
 flow.AddMutator(&mutators.HelmHooksToArgoCD{})
 ```
 
+### Custom Mutators
+You can create custom mutators by implementing the `gitops.Mutator` interface. This allows you to define specific mutation logic that suits your requirements. Write your mutations to the provided `io.Writer` in the `MutateFile` method. Any data written to to the writter will overwrite the input data and passed to the next mutator in the chain. If nothing is written to the writer, the next mutator in the chain will receive the original input.
+
 ## Validators
 *You can implement your own by creating a type that satisfies the `gitops.Validator` interface.*
 
@@ -24,3 +29,6 @@ This validator checks for empty files in the manifests. Empty files are often a 
 ```go
 flow.AddValidator(&validators.EmptyFiles{})
 ```
+
+### Custom Validators
+You can create custom validators by implementing the `gitops.Validator` interface. This allows you to define specific validation logic that suits your requirements. Read the file from the provided `io.Reader` in the `ValidateFile` method. Return a `gitops.ValidationResult` indicating whether the file is valid or not, along with a slice of applicable errors in the case where a validation is not valid.
