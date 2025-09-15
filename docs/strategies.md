@@ -16,6 +16,7 @@ GitOps manager supports the usage of different strategies to manage the flow of 
 - [Reviewers](#reviewers)
     - [Dummy](#dummy)
     - [Gitea](#gitea)
+    - [Gitlab](#gitlab)
 
 
 ## Authorisors
@@ -119,6 +120,20 @@ reviewer := &reviewer.Gitea{
     MergeOptions: &gitea.MergePullRequestOption{
         Style:                  gitea.MergeStyleRebase,
         DeleteBranchAfterMerge: true,
+    },
+}
+```
+
+### Gitlab
+The Gitlab reviewer creates and manages merge requests in a Gitlab repository. It uses the Gitlab API to create a merge request with a specified title and description, and it can automatically merge the merge request if desired. The Gitlab reviewer requires a Gitlab client to interact with the Gitlab server.
+
+```go
+reviewer := &reviewer.Gitlab{
+    Client: gitlabClient,
+    MergeOptions: &reviewer.GitlabMergeOptions{
+        Squash:        true,
+	    CommitMessage: "Merge via gitops-manager",
+	    DeleteBranch:  true,
     },
 }
 ```
