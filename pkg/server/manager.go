@@ -176,7 +176,7 @@ func (m *Manager) ProcessRequest(ctx context.Context, req *gitops.Request) (*git
 
 				var outputReader io.Reader
 
-				if output.Len() == 0 {
+				if output.Len() == 0 || mutateErr != nil {
 					outputReader = io.MultiReader(readBytes, input)
 				} else {
 					outputReader = bytes.NewReader(output.Bytes())
