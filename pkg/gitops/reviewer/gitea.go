@@ -23,7 +23,7 @@ type GiteaMergeOptions struct {
 }
 
 func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, target *gitops.Target, sendMsg func(string)) (*gitops.CreateReviewResult, error) {
-	owner, repo, err := getOwnerRepo(target.Repository.URL)
+	owner, repo, err := g.getOwnerRepo(target.Repository.URL)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, target *g
 }
 
 func (g *Gitea) CompleteReview(ctx context.Context, req *gitops.Request, createReviewResult *gitops.CreateReviewResult, sendMsg func(string)) (bool, error) {
-	owner, repo, err := getOwnerRepo(createReviewResult.URL)
+	owner, repo, err := g.getOwnerRepo(createReviewResult.URL)
 	if err != nil {
 		return false, err
 	}
@@ -144,7 +144,7 @@ Merge:
 	return merged, nil
 }
 
-func getOwnerRepo(repositoryUrl string) (string, string, error) {
+func (g *Gitea) getOwnerRepo(repositoryUrl string) (string, string, error) {
 	targetRepositoryUrl, err := url.Parse(repositoryUrl)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to parse target repository URL: %w", err)
