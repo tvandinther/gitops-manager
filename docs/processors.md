@@ -26,7 +26,7 @@ flow.AddMutator(&mutators.NewLineEOF{})
 ```
 
 ### Custom Mutators
-You can create custom mutators by implementing the `gitops.Mutator` interface. This allows you to define specific mutation logic that suits your requirements. Write your mutations to the provided `io.Writer` in the `MutateFile` method. Any data written to to the writter will overwrite the input data and passed to the next mutator in the chain. If nothing is written to the writer, the next mutator in the chain will receive the original input.
+You can create custom mutators by implementing the `gitops.Mutator` interface. This allows you to define specific mutation logic that suits your requirements. Write your mutations to the provided `io.Writer` in the `MutateFile` method. Any data written to to the writter will overwrite the input data and passed to the next mutator in the chain. If nothing is written to the writer or if an error is returned, the next mutator in the chain will receive the original input.
 
 ## Validators
 *You can implement your own by creating a type that satisfies the `gitops.Validator` interface.*
