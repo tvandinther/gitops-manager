@@ -2,6 +2,7 @@
 
 - [Mutators](#mutators)
     - [Helm Hook To Argo CD Sync Hook](#helm-hook-to-argo-cd-sync-hook)
+    - [New Line EOF](#new-line-eof)
     - [Custom Mutators](#custom-mutators)
 - [Validators](#validators)
     - [Empty Files](#empty-files)
@@ -15,6 +16,13 @@ This mutator converts Helm hooks to Argo CD sync hooks. It looks for the annotat
 
 ```go
 flow.AddMutator(&mutators.HelmHooksToArgoCD{})
+```
+
+### New Line EOF
+This mutator ensures that all files end with a new line character. This is useful in keeping diffs clean and avoiding unnecessary changes in version control systems.
+
+```go
+flow.AddMutator(&mutators.NewLineEOF{})
 ```
 
 ### Custom Mutators
