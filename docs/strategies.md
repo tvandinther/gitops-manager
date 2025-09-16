@@ -131,6 +131,7 @@ The Gitlab reviewer creates and manages merge requests in a Gitlab repository. I
 reviewer := &reviewer.Gitlab{
     Client: gitlabClient,
     MergeOptions: &reviewer.GitlabMergeOptions{
+        AutoMerge:     true, // Wlll fail with 405 if the project does not have a pipeline
         Squash:        true,
 	    CommitMessage: "Merge via gitops-manager",
 	    DeleteBranch:  true,
