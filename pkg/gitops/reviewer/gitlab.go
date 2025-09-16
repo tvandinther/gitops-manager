@@ -23,6 +23,7 @@ type GitlabMergeOptions struct {
 	Squash        bool
 	CommitMessage string
 	DeleteBranch  bool
+	AutoMerge     bool // If true, the merge request merges when the pipeline succeeds.
 }
 
 func (g *Gitlab) CreateReview(ctx context.Context, req *gitops.Request, target *gitops.Target, sendMsg func(string)) (*gitops.CreateReviewResult, error) {
@@ -57,9 +58,11 @@ func (g *Gitlab) CreateReview(ctx context.Context, req *gitops.Request, target *
 	}
 
 	mr, response, err := g.Client.MergeRequests.CreateMergeRequest(projectId, &gitlab.CreateMergeRequestOptions{
-		TargetBranch: gitlab.Ptr(target.Branch.Target),
-		SourceBranch: gitlab.Ptr(target.Branch.Source),
-		Title:        gitlab.Ptr(fmt.Sprintf("Promote %s [%s] to %s", req.AppName, req.UpdateIdentifier, req.Environment)),
+		TargetBranch:       gitlab.Ptr(target.Branch.Target),
+		SourceBranch:       gitlab.Ptr(target.Branch.Source),
+		Squash:             gitlab.Ptr(g.MergeOptions.Squash),
+		RemoveSourceBranch: gitlab.Ptr(g.MergeOptions.DeleteBranch),
+		Title:              gitlab.Ptr(fmt.Sprintf("Promote %s [%s] to %s", req.AppName, req.UpdateIdentifier, req.Environment)),
 		Description: gitlab.Ptr(fmt.Sprintf(`<table>
   <tr>
     <td><strong>Target Environment</strong></td>
@@ -77,7 +80,7 @@ func (g *Gitlab) CreateReview(ctx context.Context, req *gitops.Request, target *
 	<td><strong>App Name</strong></td>
 	<td>%s</td>
   </tr>
-</table>`, req.Environment, req.Source.Repository.URL, projectId, req.Source.Repository.URL, req.UpdateIdentifier, req.UpdateIdentifier, req.AppName),
+</table>`, req.Environment, req.Source.Repository.URL, "TODO", req.Source.Repository.URL, req.UpdateIdentifier, req.UpdateIdentifier, req.AppName),
 		)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create merge request: %w", err)
@@ -102,9 +105,10 @@ func (g *Gitlab) CompleteReview(ctx context.Context, req *gitops.Request, create
 	if err != nil {
 		return false, err
 	}
+	slog.Debug("parsed gitlab ids", "projectId", projectId, "mergeRequestId", mergeRequestId)
 
 	acceptOptions := &gitlab.AcceptMergeRequestOptions{
-		AutoMerge:                gitlab.Ptr(true),
+		AutoMerge:                gitlab.Ptr(g.MergeOptions.AutoMerge),
 		Squash:                   gitlab.Ptr(g.MergeOptions.Squash),
 		ShouldRemoveSourceBranch: gitlab.Ptr(g.MergeOptions.DeleteBranch),
 	}
@@ -116,17 +120,21 @@ func (g *Gitlab) CompleteReview(ctx context.Context, req *gitops.Request, create
 
 	sendMsg("merging merge request")
 	retries := 0
-	retryLimit := 1
+	retryLimit := 10
 Merge:
 	mergeRequest, response, err := g.Client.MergeRequests.AcceptMergeRequest(projectId, mergeRequestId, acceptOptions)
-	if err != nil {
-		return false, fmt.Errorf("failed to merge merge request: %w", err)
-	}
-	if response.StatusCode != 200 {
+
+	if response.StatusCode != 200 || err != nil {
+		if err != nil {
+			slog.Warn("failed to merge merge request", "error", err)
+		}
 		if response.StatusCode == 405 && retries < retryLimit {
-			time.Sleep(1 * time.Second)
+			time.Sleep(time.Duration(1+retries) * time.Second)
 			retries++
 			goto Merge
+		}
+		if err != nil {
+			return false, fmt.Errorf("failed to merge merge request: %w", err)
 		}
 		sendMsg(fmt.Sprintf("received %d status code", response.StatusCode))
 		return false, fmt.Errorf("did not receieve 200 OK status code")
@@ -147,6 +155,7 @@ func (g *Gitlab) getProjectId(repositoryUrl string) (string, error) {
 	}
 
 	projectId := strings.TrimSuffix(targetRepositoryUrl.Path, ".git")
+	projectId = strings.TrimPrefix(projectId, "/")
 
 	return projectId, nil
 }
@@ -159,6 +168,7 @@ func (g *Gitlab) getProjectIdAndMergeRequestId(mergeRequestUrl string) (string, 
 
 	splitPath := strings.Split(targetRepositoryUrl.Path, "/-/merge_requests/")
 	projectId := splitPath[0]
+	projectId = strings.TrimPrefix(projectId, "/")
 	mergeRequestId, err := strconv.ParseInt(splitPath[1], 10, 32)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to parse merge request id into integer: %w", err)
