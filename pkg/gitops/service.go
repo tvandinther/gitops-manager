@@ -46,8 +46,8 @@ type EnvironmentBranches struct {
 
 func NewService(reporter *progress.Reporter, opts ServiceOptions, target *Target) *Service {
 	environmentBranches := EnvironmentBranches{
-		Trunk: plumbing.NewBranchReferenceName(target.Branch.Source),
-		Next:  plumbing.NewBranchReferenceName(target.Branch.Target),
+		Trunk: plumbing.NewBranchReferenceName(target.Branch.Target),
+		Next:  plumbing.NewBranchReferenceName(target.Branch.Source),
 	}
 
 	return &Service{

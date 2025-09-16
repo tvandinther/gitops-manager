@@ -66,8 +66,8 @@ func (g *Gitea) CreateReview(ctx context.Context, req *gitops.Request, target *g
 	}
 
 	pullRequest, response, err := g.Client.CreatePullRequest(owner, repo, gitea.CreatePullRequestOption{
-		Head:  target.Branch.Target,
-		Base:  target.Branch.Source,
+		Head:  target.Branch.Source,
+		Base:  target.Branch.Target,
 		Title: fmt.Sprintf("Promote %s [%s] to %s", req.AppName, req.UpdateIdentifier, req.Environment),
 		Body: fmt.Sprintf(`<table>
   <tr>

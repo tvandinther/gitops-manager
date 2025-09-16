@@ -3,6 +3,8 @@ export GITEA_HOST := "http://localhost:3000"
 export GITEA_USER := "gitops-manager"
 export GITEA_ACCESS_TOKEN := "58359fe2e5db3884c70d8646971ebf5cae21fd63"
 
+set dotenv-load := true
+
 default:
   @just --choose
 
