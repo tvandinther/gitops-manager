@@ -33,6 +33,6 @@ jobs:
         run: go test ./...
 
       - name: Notify Go Proxy
-        run: go list -m agithub.com/tvandinther/gitops-manager@${{ github.ref_name }}
+        run: go list -m github.com/tvandinther/gitops-manager@${{ github.ref_name }}
         env:
           GOPROXY: "proxy.golang.org"
