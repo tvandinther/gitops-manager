@@ -8,7 +8,7 @@ import (
 )
 
 type Directory struct {
-	Prefix        string // The path prefix to use relative to the parent directory for environment directories.
+	Prefix        string // The path prefix to use relative to the parent directory for environment directories. Omit or use "" for no prefix.
 	DirectoryName string // The name of the parent directory containing the environment directories. Omit or use "" for none.
 	Branch        string // The branch to target the configuration to.
 	Orphan        bool   // Whether to create an orphan branch if branch does not exist. Will take precedence over Upstream if true.
