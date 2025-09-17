@@ -6,6 +6,8 @@ GitOps manager supports the usage of different strategies to manage the flow of 
     - [Static Authorisor](#static-authorisor)
 - [Targeters](#targeters)
     - [Branch Targeter](#branch-targeter)
+    - [Directory Targeter](#directory-targeter)
+    - [Repository Targeter](#repository-targeter)
 - [URL Authenticators](#url-authenticators)
     - [None](#none)
     - [User Password](#user-password)
@@ -47,6 +49,45 @@ targeter := &targeters.Branch{
     DirectoryName: "manifests", 
     Orphan: true
     // Upstream: "main", // Required if Orphan is false
+}
+```
+
+### Directory Targeter
+The directory targeter strategy uses directories to define environments. Each environment directory may be prefixed and follows the format `<prefix><environment>`. For example, with a prefix of `env-`, the `staging` environment would correspond to the `env-staging` directory.
+
+```go
+targeter := &targeters.Directory{
+    Prefix: "env-",  // Omit or use "" for no prefix
+    DirectoryName: "manifests", // Omit or use "" for none
+    Branch: "main", // The branch to target the configuration to.
+    Orphan: true, // Whether to create an orphan branch if branch does not exist. Will take precedence over Upstream if true.
+    // Upstream: "main", // The upstream
+}
+```
+
+### Repository Targeter
+The repository targeter strategy uses different repositories to define environments. Each environment is mapped to a specific repository using a provided mapping function. This allows for flexibility in managing configurations across multiple repositories.
+
+```go
+targeter := &targeters.Repository{
+    MapRepositoryFn: func(environment string) (gitops.Repository, error) {
+        switch environment {
+        case "staging":
+            return gitops.Repository{
+                URL: "https://github.com/example-org/staging-repo.git",
+            }, nil
+        case "production":
+            return gitops.Repository{
+                URL: "https://github.com/example-org/production-repo.git",
+            }, nil
+        default:
+            return nil, fmt.Errorf("unknown environment: %s", environment)
+        }
+    },
+    DirectoryName: "manifests", // Omit or use "" for none
+    Branch: "main", // The branch to target the configuration to.
+    Orphan: true, // Whether to create an orphan branch if branch does not exist. Will take precedence over Upstream if true.
+    // Upstream: "main", // The upstream to base the branch off if orphan is false. Must be set if Orphan is false.
 }
 ```
 
