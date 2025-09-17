@@ -80,7 +80,7 @@ func (g *Gitlab) CreateReview(ctx context.Context, req *gitops.Request, target *
 	<td><strong>App Name</strong></td>
 	<td>%s</td>
   </tr>
-</table>`, req.Environment, req.Source.Repository.URL, "TODO", req.Source.Repository.URL, req.UpdateIdentifier, req.UpdateIdentifier, req.AppName),
+</table>`, req.Environment, req.Source.Repository.URL, req.Source.Repository.URL, req.Source.Repository.URL, req.UpdateIdentifier, req.UpdateIdentifier, req.AppName),
 		)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create merge request: %w", err)
