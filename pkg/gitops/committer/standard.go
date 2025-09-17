@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 
 	gitUtil "github.com/tvandinther/gitops-manager/internal/git"
-	igit "github.com/tvandinther/gitops-manager/internal/git"
 	"github.com/tvandinther/gitops-manager/pkg/gitops"
+	pgit "github.com/tvandinther/gitops-manager/pkg/gitops/git"
 )
 
 type Standard struct {
-	Author          *igit.Author
+	Author          *pgit.Author
 	CommitSubject   string
 	CommitMessageFn func(req *gitops.Request) string
 }

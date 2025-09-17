@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	igit "github.com/tvandinther/gitops-manager/internal/git"
+	pgit "github.com/tvandinther/gitops-manager/pkg/gitops/git"
 	"github.com/tvandinther/gitops-manager/pkg/progress"
 
 	"github.com/go-git/go-git/v5"
@@ -20,7 +21,7 @@ type ServiceOptions struct {
 	EnvironmentName  string
 	ApplicationName  string
 	UpdateIdentifier string
-	GitAuthor        *igit.Author
+	GitAuthor        *pgit.Author
 }
 
 type Service struct {
@@ -32,7 +33,7 @@ type Service struct {
 	environmentConfig   environmentConfig
 	target              *Target
 	cloneDepth          int
-	author              *igit.Author
+	author              *pgit.Author
 }
 
 type environmentConfig struct {

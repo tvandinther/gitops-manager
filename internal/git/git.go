@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	pgit "github.com/tvandinther/gitops-manager/pkg/gitops/git"
 )
 
 func Clone(remoteURL *url.URL, directory string, ref plumbing.ReferenceName, depth int) (*git.Repository, error) {
@@ -25,12 +26,7 @@ func Clone(remoteURL *url.URL, directory string, ref plumbing.ReferenceName, dep
 	return git.PlainClone(directory, false, cloneOpts)
 }
 
-type Author struct {
-	Name  string
-	Email string
-}
-
-func Commit(repo *git.Repository, wt *git.Worktree, author *Author, commitSubject, commitBody string) error {
+func Commit(repo *git.Repository, wt *git.Worktree, author *pgit.Author, commitSubject, commitBody string) error {
 	var err error
 
 	if wt == nil {

@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
-	igit "github.com/tvandinther/gitops-manager/internal/git"
 	"github.com/tvandinther/gitops-manager/internal/util"
 	"github.com/tvandinther/gitops-manager/pkg/flow"
 	"github.com/tvandinther/gitops-manager/pkg/gitops"
+	pgit "github.com/tvandinther/gitops-manager/pkg/gitops/git"
 	"github.com/tvandinther/gitops-manager/pkg/progress"
 )
 
@@ -34,7 +34,7 @@ type ManagerOpts struct {
 }
 
 type GitOptions struct {
-	Author     *igit.Author
+	Author     *pgit.Author
 	CloneDepth int
 }
 

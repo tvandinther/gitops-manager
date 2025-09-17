@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"code.gitea.io/sdk/gitea"
-	"github.com/tvandinther/gitops-manager/internal/git"
 	"github.com/tvandinther/gitops-manager/pkg/flow"
 	"github.com/tvandinther/gitops-manager/pkg/gitops"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/authenticator"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/authorisor"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/committer"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/copier"
+	"github.com/tvandinther/gitops-manager/pkg/gitops/git"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/mutators"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/reviewer"
 	"github.com/tvandinther/gitops-manager/pkg/gitops/targeters"
@@ -23,9 +23,6 @@ import (
 
 func main() {
 	giteaClient, err := gitea.NewClient(os.Getenv("GITEA_HOST"), gitea.SetBasicAuth(os.Getenv("GITEA_USER"), os.Getenv("GITEA_ACCESS_TOKEN")))
-	if err != nil {
-		log.Fatalf("failed to create Gitea client: %s", err)
-	}
 
 	authenticator := &authenticator.UserPassword{
 		Username: os.Getenv("GITEA_USER"),
