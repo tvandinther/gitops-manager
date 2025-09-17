@@ -45,10 +45,15 @@ func main() {
 		},
 	}
 
+	targeter, err := targeters.NewBranch(targeters.BranchOptions{Prefix: "environment/", DirectoryName: "manifests", Orphan: true})
+	if err != nil {
+		log.Fatalf("failed to create targeter: %s", err)
+	}
+
 	flow := flow.New(&flow.Strategies{
 		RequestAuthorisation: authorisor.NoAuthorisation,
 		CloneAuthentication:  authenticator,
-		Target:               &targeters.Branch{Prefix: "environment/", DirectoryName: "manifests", Orphan: true},
+		Target:               targeter,
 		FileCopy: &copier.Subpath{
 			Path: ".",
 		},
