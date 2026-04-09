@@ -171,7 +171,10 @@ func (s *Server) UpdateManifests(stream grpc.BidiStreamingServer[pb.ManifestRequ
 				goto respond
 			}
 			chunk := m.File
-			fileReceiver.receiveFileChunk(ctx, chunk)
+			if err := fileReceiver.receiveFileChunk(ctx, chunk); err != nil {
+				preflightErr = err
+				goto respond
+			}
 		}
 	}
 
@@ -196,11 +199,11 @@ respond:
 	}
 
 	if response.Error != "" {
-		slog.Info("sending error response", "error", response.Error)
+		slog.Error("operation failed", "error", response.Error)
 		err = stream.Send(&pb.ManifestResponse{
 			Response: &pb.ManifestResponse_Error{
 				Error: &pb.Error{
-					Message: response.Error,
+					Message: "operation failed; check server logs for details",
 				},
 			},
 		})

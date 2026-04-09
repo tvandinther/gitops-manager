@@ -21,12 +21,24 @@ import (
 	"github.com/tvandinther/gitops-manager/pkg/server"
 )
 
+func requireEnv(key string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		log.Fatalf("required environment variable %q is not set", key)
+	}
+	return val
+}
+
 func main() {
-	giteaClient, err := gitea.NewClient(os.Getenv("GITEA_HOST"), gitea.SetBasicAuth(os.Getenv("GITEA_USER"), os.Getenv("GITEA_ACCESS_TOKEN")))
+	giteaHost := requireEnv("GITEA_HOST")
+	giteaUser := requireEnv("GITEA_USER")
+	giteaToken := requireEnv("GITEA_ACCESS_TOKEN")
+
+	giteaClient, err := gitea.NewClient(giteaHost, gitea.SetBasicAuth(giteaUser, giteaToken))
 
 	authenticator := &authenticator.UserPassword{
-		Username: os.Getenv("GITEA_USER"),
-		Password: os.Getenv("GITEA_ACCESS_TOKEN"),
+		Username: giteaUser,
+		Password: giteaToken,
 	}
 
 	gitAuthor := &git.Author{

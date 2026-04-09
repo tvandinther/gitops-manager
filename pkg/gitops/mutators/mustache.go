@@ -30,7 +30,6 @@ func (m *Mustache) MutateFile(ctx context.Context, request *gitops.Request, inpu
 		return fmt.Errorf("failed to get template data: %w", err)
 	}
 	templated, err := mustache.Render(string(inputData), data)
-	fmt.Println(templated)
 
 	bytesWritten, err := io.WriteString(outputFile, templated)
 	slog.Debug("written to output file", "bytesWritten", bytesWritten)

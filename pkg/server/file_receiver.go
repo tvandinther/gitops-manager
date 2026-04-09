@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	pb "github.com/tvandinther/gitops-manager/gen/go"
@@ -60,7 +61,12 @@ func (r *FileReceiver) receiveFileChunk(ctx context.Context, chunk *pb.FileChunk
 	if chunk.IsLastChunk {
 		slog.Debug("Received full file", "name", chunk.Filename, "size", r.buffers[chunk.Filename].Len())
 		absoluteFilename := filepath.Join(r.destinationDirectory, chunk.Filename)
-		err := os.MkdirAll(filepath.Dir(absoluteFilename), os.ModePerm)
+		// Prevent path traversal: resolved path must stay within the destination directory.
+		destDir := filepath.Clean(r.destinationDirectory) + string(filepath.Separator)
+		if !strings.HasPrefix(filepath.Clean(absoluteFilename)+string(filepath.Separator), destDir) {
+			return fmt.Errorf("invalid file path %q: must be within destination directory", chunk.Filename)
+		}
+		err := os.MkdirAll(filepath.Dir(absoluteFilename), 0755)
 		if err != nil {
 			return fmt.Errorf("failed to make parent directory: %w", err)
 		}
@@ -69,7 +75,7 @@ func (r *FileReceiver) receiveFileChunk(ctx context.Context, chunk *pb.FileChunk
 		r.filesReceived++
 		r.progress.Increment(1)
 
-		err = os.WriteFile(absoluteFilename, buffer.Bytes(), os.ModePerm)
+		err = os.WriteFile(absoluteFilename, buffer.Bytes(), 0644)
 		if err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
 		}

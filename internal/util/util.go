@@ -38,7 +38,7 @@ func (t *TempFS) Mkdir(paths ...string) (string, error) {
 	if !strings.HasPrefix(dirPath, t.Root) {
 		dirPath = filepath.Join(t.Root, dirPath)
 	}
-	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return "", fmt.Errorf("failed to make directory %s: %w", dirPath, err)
 	}
 
